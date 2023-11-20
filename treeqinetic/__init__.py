@@ -1,8 +1,9 @@
 from typing import Tuple, Optional
 from kj_core import PlotManager
 from kj_core import log_manager, get_logger
+from .classes import Series, Sensor, Measurement, Oscillation
 
-import classes
+
 from .config import Config
 
 CONFIG = None

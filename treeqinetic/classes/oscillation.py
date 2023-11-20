@@ -211,7 +211,7 @@ class Oscillation(BaseClass):
 
         """
         try:
-            plt_o.plot_oscillation(self)
+            plt_o.plot_oscillation(self.PLOT_MANAGER, self)
             logger.info(f"plot_oscillation for measurement: '{self}' successful.")
         except Exception as e:
             logger.error(f"Failed to plot_oscillation: '{self}'. Error: {e}")
@@ -221,7 +221,7 @@ class Oscillation(BaseClass):
 
         """
         try:
-            plt_o.plot_oscillation_with_damping(self)
+            plt_o.plot_oscillation_with_damping(self.PLOT_MANAGER, self)
             logger.info(f"plot_oscillation_with_damping for measurement: '{self}' successful.")
         except Exception as e:
             logger.error(f"Failed to plot_oscillation_with_damping: '{self}'. Error: {e}")
