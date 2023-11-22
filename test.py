@@ -18,10 +18,10 @@ ptq_series = ptq.classes.Series(name=analyse_name, path=ptq_data_path)
 elasto_names = ["Elasto(95)", "Elasto(98)", "Elasto(92)", "Elasto(90)"]
 
 
-ptq_series.plot_measurement_sensors(sensor_names=elasto_names)
+# ptq_series.plot_measurement_sensors(sensor_names=elasto_names)
 
 
 ptq_series.get_oscillations(sensor_names=elasto_names)
 
-
-ptq_series.plot_single_oscillations_for_measurements(sensor_names=elasto_names) # stell jeden sensor einzeln dar
+ptq_series.plot_oscillations_for_measurements(sensor_names=elasto_names, combined=True)
+ptq_series.plot_oscillations_for_measurements(sensor_names=elasto_names, combined=False)

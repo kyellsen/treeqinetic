@@ -49,15 +49,10 @@ class Series(BaseClass):
             logger.info(f"\n Select Oscillations for {measurement}")
             measurement.select_oscillations(sensor_names)
 
-    def plot_single_oscillations_for_measurements(self, sensor_names: list):
+    def plot_oscillations_for_measurements(self, sensor_names: list, combined: bool = False):
         for measurement in self.measurements:
-            logger.info(f"Plot single Oscillations for {measurement}")
-            measurement.plot_select_oscillation_single(sensor_names)
-
-    def plot_multi_oscillations_for_measurements(self, sensor_names: list):
-        for measurement in self.measurements:
-            logger.info(f"Plot multiple Oscillations for {measurement}")
-            measurement.plot_select_oscillation_multi(sensor_names)
+            logger.info(f"Plot Oscillations for {measurement}")
+            measurement.plot_select_oscillations(sensor_names, combined)
 
     def get_oscillations_list(self):
         oscillation_list = []

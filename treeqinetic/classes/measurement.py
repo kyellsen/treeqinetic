@@ -31,6 +31,7 @@ class Measurement(BaseClass):
         self.id: int = Measurement.counter
         self.file_path: Path = Path(file_path)
         self.file_name: str = self.file_path.name
+        self.file_name_text: str = str(self.file_name).replace(".", "_")
 
         # Initialize empty attributes
         self.project = project
@@ -188,7 +189,7 @@ class Measurement(BaseClass):
             else:
                 oscillation_df = None
 
-            # Store the data in an Oscillation object
+            # Store the data in an Oscillation attribut
             self.oscillations[sensor_name] = Oscillation(self, sensor_name, start_index, oscillation_df)
 
     def plot_multi_sensors(self, sensor_names: List[str], time_start: Union[None, datetime.datetime] = None,
@@ -201,43 +202,77 @@ class Measurement(BaseClass):
                 time_end = self.length
             data = self.data[
                 (self.data['Sec_Since_Start'] > time_start) & (self.data['Sec_Since_Start'] < time_end)]
-            file_name = str(self.file_name).replace(".", "_")
 
-            fig = plot_measurement.plot_multi_sensors(data, file_name, self.id, sensor_names)
+            fig = plot_measurement.plot_multi_sensors(data, self.file_name_text, self.id, sensor_names)
 
-            self.PLOT_MANAGER.save_plot(fig, filename=f"multi_sensors_{file_name}_{self.id}",
+            self.PLOT_MANAGER.save_plot(fig, filename=f"multi_sensors_{self.file_name_text}_{self.id}",
                                         subdir="multi_sensors_vs_time_1")
 
             logger.info(f"plot_multi_sensors for measurement: '{self}' successful.")
         except Exception as e:
             logger.error(f"Failed to plot_multi_sensors: '{self}'. Error: {e}")
 
-    def plot_select_oscillation_single(self, sensor_names: List[str]) -> None:
-        """Plot selected oscillation data for a single sensor."""
-        file_name = str(self.file_name).replace(".", "_")
+    def plot_select_oscillations(self, sensor_names: List[str], combined: bool) -> None:
+        """
+        Plot selected oscillations data for given sensor names.
 
+        Args:
+            sensor_names (List[str]): List of sensor names.
+            combined (bool): Flag indicating whether to combine plots or not.
+
+        This method plots oscillation data for each sensor in `sensor_names`.
+        If `combined` is True, all oscillations are combined into a single plot.
+        Otherwise, each sensor's oscillation is plotted separately.
+        """
+
+        subdir = "select_oscillations_combined_1" if combined else "select_oscillations_single_1"
+
+        if combined:
+            self._plot_combined_oscillations(sensor_names, subdir)
+        else:
+            self._plot_single_oscillations(sensor_names, subdir)
+
+    def _plot_combined_oscillations(self, sensor_names: List[str], subdir: str) -> None:
+        """
+        Helper method to plot combined oscillations for given sensor names.
+
+        Args:
+            sensor_names (List[str]): List of sensor names.
+            subdir (str): Subdirectory for saving the plot.
+        """
+        try:
+            oscillations_data_orig = {sensor_name: self.oscillations[sensor_name].df_orig
+                                      for sensor_name in sensor_names
+                                      if sensor_name in self.oscillations}
+            fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_names,
+                                                            oscillations_data_orig=oscillations_data_orig)
+
+            filename = f"select_oscillation_combined_{self.file_name_text}_{self.id}"
+            self.PLOT_MANAGER.save_plot(fig, filename=filename, subdir=subdir)
+            logger.info(f"Combined plot_select_oscillation for measurement: '{self}' successful.")
+        except Exception as e:
+            logger.error(f"Failed to create combined plot_select_oscillation: '{self}'. Error: {e}")
+
+    def _plot_single_oscillations(self, sensor_names: List[str], subdir: str) -> None:
+        """
+        Helper method to plot individual oscillations for each sensor name.
+
+        Args:
+            sensor_names (List[str]): List of sensor names.
+            subdir (str): Subdirectory for saving the plot.
+        """
         for sensor_name in sensor_names:
             if sensor_name in self.oscillations:
-                oscillation = self.oscillations[sensor_name]
                 try:
-                    fig = plot_measurement.plot_select_oscillation_single(data=self.data, sensor_name=sensor_name, oscillation_data_orig=oscillation.df_orig)
+                    oscillation = self.oscillations[sensor_name]
+                    fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_name,
+                                                                    oscillations_data_orig=oscillation.df_orig)
 
-                    self.PLOT_MANAGER.save_plot(fig, filename=f"select_oscillation_single_{file_name}_{self.id}_{sensor_name}",
-                                                subdir="select_oscillation_single_1")
+                    filename = f"select_oscillation_{self.file_name_text}_{self.id}_{sensor_name}"
+                    self.PLOT_MANAGER.save_plot(fig, filename=filename, subdir=subdir)
                     logger.info(f"plot_select_oscillation for measurement: '{self}' for {sensor_name} successful.")
                 except Exception as e:
                     logger.error(f"Failed to plot_select_oscillation: '{self}' for {sensor_name}. Error: {e}")
             else:
                 logger.warning(f"No oscillation data found for sensor: {sensor_name}")
 
-    def plot_select_oscillation_multi(self, sensor_names: List[str]) -> None:
-        """Plot selected oscillation data for multiple sensors."""
-        oscillations_to_plot = []
-        for sensor_name in sensor_names:
-            if sensor_name in self.oscillations:
-                oscillations_to_plot.append(self.oscillations[sensor_name])
-        try:
-            plot_measurement.plot_select_oscillation_multi(self.PLOT_MANAGER, self, oscillations_to_plot)
-            logger.info(f"Multi-sensor oscillation plot for measurement: '{self}' successful.")
-        except Exception as e:
-            logger.error(f"Failed to create multi-sensor oscillation plot: '{self}'. Error: {e}")

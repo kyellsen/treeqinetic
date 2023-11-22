@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from typing import List
+from typing import List, Dict, Union
 
 
 def plot_multi_sensors(data: pd.DataFrame, file_name: str, measurement_id: int, sensor_names: list):
@@ -40,67 +40,43 @@ def configure_plot(ax, x_data: pd.Series, y_data: pd.Series, sensor_name: str, x
     ax.set_ylabel(y_label)
 
 
-def plot_oscillation(ax1, ax2, data, sensor_name, oscillation_data_orig):
+def plot_select_oscillations(data: pd.DataFrame,
+                             sensor_names: Union[str, List[str]],
+                             oscillations_data_orig: Union[pd.DataFrame, Dict[str, pd.DataFrame]]):
     """
-    Configures and adjusts two subplots for oscillation data visualization.
+    Configures and adjusts multiple subplots for oscillation data visualization.
 
-    Parameters:
-    ax1, ax2 (matplotlib.axes.Axes): Axes objects for the plots.
-    data (pd.DataFrame): DataFrame containing the main data.
-    sensor_name (str): The name of the sensor.
-    oscillation_data_orig (pd.DataFrame): DataFrame containing the original oscillation data.
+    Args:
+        data (pd.DataFrame): The main data frame.
+        sensor_names (Union[str, List[str]]): A single sensor name or a list of sensor names.
+        oscillations_data_orig (Union[pd.DataFrame, Dict[str, pd.DataFrame]]): Oscillation data, either as a single DataFrame or a dictionary of DataFrames.
     """
-    configure_plot(ax1, data['Sec_Since_Start'], data[sensor_name], sensor_name, 'Time [Sec]', sensor_name,
-                   'Original Data ({})')
+    if isinstance(sensor_names, str):
+        sensor_names = [sensor_names]  # Ensure sensor_names is always a list
+        oscillations_data_orig = {sensor_names[0]: oscillations_data_orig}  # Wrap in dict if necessary
 
-    if oscillation_data_orig is not None:
-        configure_plot(ax2, oscillation_data_orig['Sec_Since_Start'], oscillation_data_orig[sensor_name], sensor_name,
-                       'Time [Sec]', sensor_name, 'Isolated Oscillation {}')
-
-    # Equalizing the Y-axes
-    min_y = min(ax1.get_ylim()[0], ax2.get_ylim()[0])
-    max_y = max(ax1.get_ylim()[1], ax2.get_ylim()[1])
-    ax1.set_ylim(min_y, max_y)
-    ax2.set_ylim(min_y, max_y)
-
-
-def plot_select_oscillation_single(data: pd.DataFrame, sensor_name: str,
-                                   oscillation_data_orig: pd.DataFrame) -> plt.Figure:
-    """
-    Plots selected oscillation data for a single sensor.
-
-    Parameters:
-    data (pd.DataFrame): The main data DataFrame.
-    sensor_name (str): The name of the sensor to plot.
-    oscillation_data_orig (pd.DataFrame): The DataFrame of original oscillation data.
-
-    Returns:
-    plt.Figure: The matplotlib figure object for the plot.
-    """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    plot_oscillation(ax1, ax2, data, sensor_name, oscillation_data_orig)
-    return fig
-
-
-def plot_select_oscillation_multi(data: pd.DataFrame, sensor_names: List[str],
-                                  oscillations_data_orig: List[pd.DataFrame]) -> plt.Figure:
-    """
-    Plots selected oscillation data for multiple sensors.
-
-    Parameters:
-    data (pd.DataFrame): The main data DataFrame.
-    sensor_names (List[str]): List of sensor names to plot.
-    oscillations_data_orig (List[pd.DataFrame]): List of DataFrames of original oscillation data for each sensor.
-
-    Returns:
-    plt.Figure: The matplotlib figure object for the plot.
-    """
     num_sensors = len(sensor_names)
-    fig, axs = plt.subplots(num_sensors, 2, figsize=(15, 6 * num_sensors))
-    axs = axs if num_sensors > 1 else [axs]
+    fig, axes = plt.subplots(num_sensors, 2, figsize=(15, 6 * num_sensors))
 
     for i, sensor_name in enumerate(sensor_names):
-        ax1, ax2 = axs[i]
-        plot_oscillation(ax1, ax2, data, sensor_name, oscillations_data_orig[i])
+        if sensor_name in oscillations_data_orig:
+            ax1 = axes[i, 0] if num_sensors > 1 else axes[0]
+            ax2 = axes[i, 1] if num_sensors > 1 else axes[1]
 
+            configure_plot(ax1, data['Sec_Since_Start'], data[sensor_name], sensor_name,
+                           'Time [Sec]', f"Elongation/Inclination [µm/°] {sensor_name}",
+                           f'Original Data {sensor_name}')
+
+            configure_plot(ax2, oscillations_data_orig[sensor_name]['Sec_Since_Start'],
+                           oscillations_data_orig[sensor_name][sensor_name], sensor_name,
+                           'Time [Sec]', f"Elongation/Inclination [µm/°] {sensor_name}",
+                           f'Isolated Oscillation {sensor_name}')
+
+            # Equalizing the Y-axes for each sensor
+            min_y = min(ax1.get_ylim()[0], ax2.get_ylim()[0])
+            max_y = max(ax1.get_ylim()[1], ax2.get_ylim()[1])
+            ax1.set_ylim(min_y, max_y)
+            ax2.set_ylim(min_y, max_y)
+
+    plt.tight_layout()
     return fig
