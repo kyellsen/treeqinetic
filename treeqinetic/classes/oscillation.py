@@ -1,14 +1,17 @@
 import numpy as np
 import pandas as pd
+from typing import Dict, List
 
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 
-
 from .base_class import BaseClass
 
-from ..plotting import plot_oscillation as plt_o
-from ..analyse.fitting_functions import exp_decreasing, damped_oscillation
+from ..plotting import plot_oscillation
+from ..analyse.fitting_functions import exp_decreasing
+from ..analyse.correct_oscillation import remove_values_above_percentage, clean_peaks_and_valleys, interpolate_points
+from ..analyse.fitting_functions import fit_damped_osc, calc_mse, convert_dict_to_list
+
 
 from kj_core import get_logger
 
@@ -23,15 +26,19 @@ class Oscillation(BaseClass):
         self.sensor_name = sensor_name  # = Column Name
         self.start_index = start_index
         self.df_orig = df
+
+        # Reset the index of the DataFrame and make sure we don't lose the original index
         self.df = df.reset_index(drop=True)
+        # Normalize the 'Sec_Since_Start' column by subtracting its minimum value
+        self.df['Sec_Since_Start'] = self.df['Sec_Since_Start'] - self.df['Sec_Since_Start'].min()
 
         # Initialize attributes with placeholder values
         self.offset = None
         self.sample_rate = None
-        self.max = None
-        self.min = None
-        self.idxmax = None
-        self.idxmin = None
+        self.max_value = None
+        self.min_value = None
+        self.max_idx = None
+        self.min_idx = None
 
         self.peaks = []
         self.valleys = []
@@ -60,8 +67,6 @@ class Oscillation(BaseClass):
         self.calculate_frequency()
 
         self.calculate_damping_coefficient()
-        # self.plot_oscillation_with_damping()
-
         # self.fit_damped_oscillation()
         # self.plot_oscillation_fitting()
 
@@ -69,8 +74,8 @@ class Oscillation(BaseClass):
         return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
 
     def calculate_offset(self, window_size=5):
-        last_quarter = int(0.75 * len(self.df))
-        last_data = self.df[self.sensor_name][last_quarter:]
+        last_points = int(0.60 * len(self.df))
+        last_data = self.df[self.sensor_name][last_points:]
         offset = last_data.rolling(window=window_size).mean().dropna().mean()
         self.offset = offset
         self.df[self.sensor_name] -= self.offset
@@ -90,17 +95,17 @@ class Oscillation(BaseClass):
 
     def calculate_min_max(self):
         try:
-            self.max = self.df[self.sensor_name].max()
-            self.min = self.df[self.sensor_name].min()
-            self.idxmax = self.df[self.sensor_name].idxmax()
-            self.idxmin = self.df[self.sensor_name].idxmin()
+            self.max_value = self.df[self.sensor_name].max()
+            self.min_value = self.df[self.sensor_name].min()
+            self.max_idx = self.df[self.sensor_name].max()
+            self.min_idx = self.df[self.sensor_name].min()
             logger.debug(f"Calculated min, max, idxmin, and idxmax for sensor {self.sensor_name}.")
         except Exception as e:
             logger.error(f"Failed to calculate min, max, idxmin, and idxmax for sensor {self.sensor_name}: {e}")
 
     def calculate_amplitude(self):
         try:
-            self.amplitude = (self.max - self.min) / 2
+            self.amplitude = (self.max_value - self.min_value) / 2
             logger.debug(f"Calculated amplitude for sensor {self.sensor_name}.")
         except Exception as e:
             logger.error(f"Failed to calculate amplitude for sensor {self.sensor_name}: {e}")
@@ -129,11 +134,11 @@ class Oscillation(BaseClass):
             del self.peaks[0]
 
         # Peak am Index 0 mit dem Wert self.max hinzufügen
-        self.peaks.insert(0, {'index': 0, 'time': self.df['Sec_Since_Start'].iloc[0], 'value': self.max})
+        self.peaks.insert(0, {'index': 0, 'time': self.df['Sec_Since_Start'].iloc[0], 'value': self.max_value})
 
     def calculate_amplitude_2(self):
         try:
-            self.amplitude_2 = (self.peaks[1]['value'] - self.min) / 2
+            self.amplitude_2 = (self.peaks[1]['value'] - self.min_value) / 2
             logger.debug(f"Calculated amplitude_2 for sensor {self.sensor_name}.")
         except Exception as e:
             self.amplitude_2 = self.amplitude / 2
@@ -180,58 +185,51 @@ class Oscillation(BaseClass):
             logger.error(f"Failed to calculate damping coefficients: {e}")
             return None, None, None
 
-    # def fit_damped_oscillation(self, maxfev=2000):
-    #     try:
-    #         # Extract time and amplitude data from the DataFrame
-    #         time = self.df['Sec_Since_Start'].values
-    #         amplitude_data = self.df[self.sensor_name].values
-    #
-    #         # Initial parameter guesses
-    #         initial_amplitude = self.amplitude_2
-    #         damping_coeff = 0.05# self.damping_coeff_avg if self.damping_coeff_avg else 0.25
-    #         angular_frequency = self.frequency #2 * np.pi * self.frequency if self.frequency else 1
-    #         phase_angle = 0
-    #         # Perform the curve fitting
-    #         params, _ = curve_fit(damped_oscillation, time, amplitude_data,
-    #                               p0=[initial_amplitude, damping_coeff, angular_frequency, phase_angle], maxfev=maxfev)
-    #
-    #         # Update the object's attributes with the fitted parameters
-    #         self.damping_coeff_avg_2 = params[1]
-    #         self.fit_data = damped_oscillation(time, *params)
-    #
-    #         logger.info(f"Damped oscillation fitting successful for sensor {self.sensor_name}.")
-    #
-    #     except Exception as e:
-    #         logger.error(f"Failed to fit damped oscillation for sensor {self.sensor_name}: {e}")
-    #         self.damping_coeff_avg_2 = None
-    #         self.fit_data = None
-
-    def plot_oscillation(self):
+    def plot_oscillation(self, with_peaks=True, with_amplitude=True, with_damping=True):
         """
 
         """
         try:
-            plt_o.plot_oscillation(self.PLOT_MANAGER, self)
+            fig = plot_oscillation.plot_oscillation(self.df, self.sensor_name, with_peaks, self.peaks, self.valleys,
+                                                    self.max_value,
+                                                    self.min_value, with_amplitude, self.amplitude, self.amplitude_2,
+                                                    with_damping,
+                                                    self.damping_coeff_peaks, self.damping_coeff_valleys)
+            self.PLOT_MANAGER.save_plot(fig,
+                                        f"{self.measurement.file_name}_{self.measurement.id}_{self.sensor_name}",
+                                        subdir="oscillation_1")
             logger.info(f"plot_oscillation for measurement: '{self}' successful.")
         except Exception as e:
             logger.error(f"Failed to plot_oscillation: '{self}'. Error: {e}")
 
-    def plot_oscillation_with_damping(self):
-        """
+    def fit_and_plot(self, initial_params: Dict, param_bounds: Dict):
+        # Verwendung für Anfangsparameter und Grenzen
+        initial_params = convert_dict_to_list(initial_params)
+        lower_bounds, upper_bounds = zip(*convert_dict_to_list(param_bounds))
+        bounds = (lower_bounds, upper_bounds)
 
-        """
+        sensor_name = self.sensor_name
+        data_orig = self.df
+        data = data_orig.copy()
+        data = clean_peaks_and_valleys(data, sensor_name, self.peaks, self.valleys)
+        data = interpolate_points(data, sensor_name, 50)
+        data = remove_values_above_percentage(data, sensor_name, self.amplitude_2, 200)
+
+        optimal_params = fit_damped_osc(data, sensor_name, initial_params=initial_params,
+                                        bounds=bounds)
+
+        mse = calc_mse(data, sensor_name, optimal_params=optimal_params)
+        if mse > 1000:
+            logger.warning(f"{self.measurement.id}_{self.sensor_name} with {mse} > 1000")
         try:
-            plt_o.plot_oscillation_with_damping(self.PLOT_MANAGER, self)
-            logger.info(f"plot_oscillation_with_damping for measurement: '{self}' successful.")
-        except Exception as e:
-            logger.error(f"Failed to plot_oscillation_with_damping: '{self}'. Error: {e}")
+            # Normalize the 'Sec_Since_Start' column by subtracting its minimum value
+            fig = plot_oscillation.plot_oscillation_and_fit(data, data_orig, sensor_name,
+                                                            optimal_params=optimal_params, mse=mse, peaks=self.peaks, valleys=self.valleys)
 
-    # def plot_oscillation_fitting(self):
-    #     """
-    #
-    #     """
-    #     try:
-    #         plt_o.plot_oscillation_fitting(self)
-    #         logger.info(f"plot_oscillation_fitting for measurement: '{self}' successful.")
-    #     except Exception as e:
-    #         logger.error(f"Failed to plot_oscillation_fitting: '{self}'. Error: {e}")
+            self.PLOT_MANAGER.save_plot(fig,
+                                        f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
+                                        subdir="oscillation_fit_1")
+            logger.info(f"fit_and_plot for measurement: '{self}' successful.")
+
+        except Exception as e:
+            logger.error(f"Failed to fit_and_plot: '{self}'. Error: {e}")

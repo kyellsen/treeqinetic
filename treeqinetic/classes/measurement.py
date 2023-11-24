@@ -166,7 +166,7 @@ class Measurement(BaseClass):
                          (self.data['Datetime'] - self.datetime_start).dt.total_seconds().astype(float))
 
     def select_oscillations(self, sensor_names: List[str], min_time_default: float = 60, min_value: float = 50,
-                            threshold_slope: float = -25, duration: float = 20):
+                            threshold_slope: float = -25, duration: float = 17.5):
         """Identify and store oscillation data for the given sensor names."""
         df = self.data
 
@@ -189,7 +189,7 @@ class Measurement(BaseClass):
             else:
                 oscillation_df = None
 
-            # Store the data in an Oscillation attribut
+            # Store the data in an Oscillation instance
             self.oscillations[sensor_name] = Oscillation(self, sensor_name, start_index, oscillation_df)
 
     def plot_multi_sensors(self, sensor_names: List[str], time_start: Union[None, datetime.datetime] = None,
