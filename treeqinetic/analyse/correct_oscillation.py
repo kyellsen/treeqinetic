@@ -3,6 +3,26 @@ import pandas as pd
 from scipy.interpolate import PchipInterpolator
 
 
+def zero_base_column(df: pd.DataFrame, column_name: str) -> pd.DataFrame:
+    """
+    Shifts the values in a specified column of a DataFrame such that the minimum value becomes zero.
+
+    Args:
+    df (pd.DataFrame): The DataFrame to be processed.
+    column_name (str): The name of the column to be zero-based.
+
+    Returns:
+    pd.DataFrame: The DataFrame with the adjusted column.
+    """
+
+    if column_name in df.columns:
+        min_value = df[column_name].min()
+        df[column_name] = df[column_name] - min_value
+        return df
+    else:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
+
+
 def remove_values_above_percentage(df, column_name, amplitude_2, percentage):
 # Schwellenwert berechnen
     threshold = amplitude_2 * (percentage*2/100)

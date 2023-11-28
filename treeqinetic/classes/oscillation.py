@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import Dict, List
+from typing import Dict, List, Tuple, Optional
 
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
@@ -9,9 +9,9 @@ from .base_class import BaseClass
 
 from ..plotting import plot_oscillation
 from ..analyse.fitting_functions import exp_decreasing
-from ..analyse.correct_oscillation import remove_values_above_percentage, clean_peaks_and_valleys, interpolate_points
-from ..analyse.fitting_functions import fit_damped_osc, calc_mse, convert_dict_to_list
-
+from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
+    interpolate_points
+from ..analyse.fitting_functions import fit_damped_osc, calc_metrics, convert_dict_to_list
 
 from kj_core import get_logger
 
@@ -28,9 +28,11 @@ class Oscillation(BaseClass):
         self.df_orig = df
 
         # Reset the index of the DataFrame and make sure we don't lose the original index
-        self.df = df.reset_index(drop=True)
+        self.df = df.reset_index(drop=True, inplace=False)  # inplace=False -> creates a copy of df
         # Normalize the 'Sec_Since_Start' column by subtracting its minimum value
-        self.df['Sec_Since_Start'] = self.df['Sec_Since_Start'] - self.df['Sec_Since_Start'].min()
+        self.df = zero_base_column(self.df, "Sec_Since_Start")
+
+        self.df_fit = self.df.copy()
 
         # Initialize attributes with placeholder values
         self.offset = None
@@ -40,23 +42,28 @@ class Oscillation(BaseClass):
         self.max_idx = None
         self.min_idx = None
 
+
         self.peaks = []
         self.valleys = []
 
+        # params for manuell fitting
         self.amplitude = None
         self.amplitude_2 = None
-
         self.frequency = None
-
         self.damping_coeff_peaks = None
         self.damping_coeff_valleys = None
         self.damping_coeff_avg = None
-
-        # self.damping_coeff_avg_2 = None
         self.fit_data = None
 
+        # params from automatic fitting
+        self.initial_amplitude = None
+        self.damping_coeff = None
+        self.angular_frequency = None
+        self.phase_angle = None
+        self.y_shift = None
+
         # Perform calculations
-        self.calculate_offset()
+        # self.calculate_offset()
 
         self.calculate_sample_rate()
 
@@ -73,8 +80,8 @@ class Oscillation(BaseClass):
     def __str__(self):
         return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
 
-    def calculate_offset(self, window_size=5):
-        last_points = int(0.60 * len(self.df))
+    def calculate_offset(self, window_size=5, last_percent=60):
+        last_points = int(last_percent/100 * len(self.df))
         last_data = self.df[self.sensor_name][last_points:]
         offset = last_data.rolling(window=window_size).mean().dropna().mean()
         self.offset = offset
@@ -202,34 +209,61 @@ class Oscillation(BaseClass):
         except Exception as e:
             logger.error(f"Failed to plot_oscillation: '{self}'. Error: {e}")
 
-    def fit_and_plot(self, initial_params: Dict, param_bounds: Dict):
-        # Verwendung für Anfangsparameter und Grenzen
-        initial_params = convert_dict_to_list(initial_params)
-        lower_bounds, upper_bounds = zip(*convert_dict_to_list(param_bounds))
-        bounds = (lower_bounds, upper_bounds)
-
-        sensor_name = self.sensor_name
-        data_orig = self.df
-        data = data_orig.copy()
-        data = clean_peaks_and_valleys(data, sensor_name, self.peaks, self.valleys)
-        data = interpolate_points(data, sensor_name, 50)
-        data = remove_values_above_percentage(data, sensor_name, self.amplitude_2, 200)
-
-        optimal_params = fit_damped_osc(data, sensor_name, initial_params=initial_params,
-                                        bounds=bounds)
-
-        mse = calc_mse(data, sensor_name, optimal_params=optimal_params)
-        if mse > 1000:
-            logger.warning(f"{self.measurement.id}_{self.sensor_name} with {mse} > 1000")
+    def fit_and_plot(self, initial_params: Dict[str, float], param_bounds: Dict[str, float],
+                     metrics_warning: Dict[str, Tuple[Optional[float], Optional[float]]] = None):
         try:
-            # Normalize the 'Sec_Since_Start' column by subtracting its minimum value
-            fig = plot_oscillation.plot_oscillation_and_fit(data, data_orig, sensor_name,
-                                                            optimal_params=optimal_params, mse=mse, peaks=self.peaks, valleys=self.valleys)
+            param_labels = list(initial_params.keys())
+
+            initial_params_list = convert_dict_to_list(initial_params)
+            lower_bounds, upper_bounds = zip(*convert_dict_to_list(param_bounds))
+            param_bounds_list = (lower_bounds, upper_bounds)
+
+            sensor_name = self.sensor_name
+            data_orig = self.df
+            data = data_orig.copy()
+            data = clean_peaks_and_valleys(data, sensor_name, self.peaks, self.valleys)
+            data = interpolate_points(data, sensor_name, 50)
+            data = remove_values_above_percentage(data, sensor_name, self.amplitude_2, 200)
+
+            params_optimal = fit_damped_osc(data, sensor_name, initial_params=initial_params_list,
+                                            param_bounds=param_bounds_list)
+
+            metrics_dict = calc_metrics(data, sensor_name, params_optimal=params_optimal)
+
+            if metrics_warning is not None:
+                # Überprüft jedes Metrik-Element
+                for metric, (lower_threshold, upper_threshold) in metrics_warning.items():
+                    metric_value = metrics_dict.get(metric, 0)
+                    if (lower_threshold is not None and metric_value < lower_threshold) or \
+                            (upper_threshold is not None and metric_value > upper_threshold):
+                        logger.warning(
+                            f"{self.measurement.id}_{self.sensor_name}: '{metric}' metric value {metric_value} outside of threshold range {lower_threshold}-{upper_threshold}")
+            # ...
+
+            fig = plot_oscillation.plot_osc_fit(data, data_orig, sensor_name, param_labels=param_labels,
+                                                params_optimal=params_optimal, metrics=metrics_dict,
+                                                peaks=self.peaks,
+                                                valleys=self.valleys)
 
             self.PLOT_MANAGER.save_plot(fig,
                                         f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
                                         subdir="oscillation_fit_1")
             logger.info(f"fit_and_plot for measurement: '{self}' successful.")
+            return metrics_dict
+
 
         except Exception as e:
             logger.error(f"Failed to fit_and_plot: '{self}'. Error: {e}")
+
+            return None
+
+    def correct_osc(self):
+        pass
+
+    def fit_osc(self, initial_params: Dict[str, float], param_bounds: Dict[str, float],
+                metrics_warning: Dict[str, Tuple[Optional[float], Optional[float]]] = None):
+
+        pass
+
+    def plot_osc(self):
+        pass

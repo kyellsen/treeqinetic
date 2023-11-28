@@ -91,15 +91,16 @@ def plot_oscillation(data: pd.DataFrame, sensor_name: str, with_peaks: bool, pea
     return fig
 
 
-def plot_oscillation_and_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, optimal_params, mse: float,
-                             peaks=None, valleys=None):
+def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, param_labels: List,
+                 params_optimal: np.ndarray,
+                 metrics: dict = None, peaks: List = None, valleys: List = None):
     # Berechnung der angepassten Schwingung
 
     time_correct = (data_orig['Sec_Since_Start'].max() - data['Sec_Since_Start'].max())
     data_orig['Sec_Since_Start'] = data_orig['Sec_Since_Start'] - time_correct
 
     time_for_fit = np.linspace(0, data['Sec_Since_Start'].max(), 3000)
-    fitted_oscillation = damped_osc(time_for_fit, *optimal_params)
+    fitted_oscillation = damped_osc(time_for_fit, *params_optimal)
 
     fig = plt.figure(figsize=(10, 6))
     plt.plot(data['Sec_Since_Start'], data[sensor_name], color='black', zorder=2, label="Modified Measurement")
@@ -120,21 +121,24 @@ def plot_oscillation_and_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor
     plt.xlabel("Time (Sec)")
     plt.ylabel(f"Elongation/Inclination [µm/°] {sensor_name}")
 
-
     # Parameterbezeichnungen und deren Werte formatieren
-    param_labels = ['Initial Amplitude', 'Damping Coeff', 'Angular Frequency', 'Phase Angle']
+    optimal_params_dict = {label: param for label, param in zip(param_labels, params_optimal)}
+
     params_text = "Optimal Params:\n"
-    for label, value in zip(param_labels, optimal_params):
+    # Ergänzt params_text um alle Parameter aus optimal_params_dict
+    for label, value in optimal_params_dict.items():
         params_text += f"{label}: {value:.2f}\n"
 
-    # MSE hinzufügen
-    params_text += f"MSE: {mse:.2f}"
+    # Ergänzt params_text um alle Metriken aus dem metrics dict, falls vorhanden
+    if metrics is not None:
+        params_text += "\nMetrics:\n"
+        for metric, value in metrics.items():
+            params_text += f"{metric}: {value:.2f}\n"
 
-    # Hinzufügen der formatierten Parameter und des MSE zum Plot
-    plt.annotate(params_text, xy=(0.1, 0.95), xycoords='axes fraction', fontsize=10,
-                 bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="white"),
-                 verticalalignment='top')
+    # Hinzufügen der formatierten Parameter zum Plot in der oberen rechten Ecke
+    plt.annotate(params_text, xy=(0.95, 0.95), xycoords='axes fraction', fontsize=10,
+                 bbox=dict(boxstyle="round,pad=0.3", facecolor='white', edgecolor='black'),
+                 verticalalignment='top', horizontalalignment='right')
 
-    plt.grid(True)
-    plt.legend()
+    plt.legend(loc="lower right")
     return fig
