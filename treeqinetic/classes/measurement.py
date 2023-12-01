@@ -205,7 +205,7 @@ class Measurement(BaseClass):
 
             fig = plot_measurement.plot_multi_sensors(data, self.file_name_text, self.id, sensor_names)
 
-            self.PLOT_MANAGER.save_plot(fig, filename=f"multi_sensors_{self.file_name_text}_{self.id}",
+            self.PLOT_MANAGER.save_plot(fig, filename=f"{self.id}_{self.file_name_text}",
                                         subdir="multi_sensors_vs_time_1")
 
             logger.info(f"plot_multi_sensors for measurement: '{self}' successful.")
@@ -225,7 +225,7 @@ class Measurement(BaseClass):
         Otherwise, each sensor's oscillation is plotted separately.
         """
 
-        subdir = "select_oscillations_combined_1" if combined else "select_oscillations_single_1"
+        subdir = "select_osc_combined_1" if combined else "select_osc_single_1"
 
         if combined:
             self._plot_combined_oscillations(sensor_names, subdir)
@@ -247,7 +247,7 @@ class Measurement(BaseClass):
             fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_names,
                                                             oscillations_data_orig=oscillations_data_orig)
 
-            filename = f"select_oscillation_combined_{self.file_name_text}_{self.id}"
+            filename = f"{self.id}_{self.file_name_text}"
             self.PLOT_MANAGER.save_plot(fig, filename=filename, subdir=subdir)
             logger.info(f"Combined plot_select_oscillation for measurement: '{self}' successful.")
         except Exception as e:
@@ -268,7 +268,7 @@ class Measurement(BaseClass):
                     fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_name,
                                                                     oscillations_data_orig=oscillation.df_orig)
 
-                    filename = f"select_oscillation_{self.file_name_text}_{self.id}_{sensor_name}"
+                    filename = f"{self.id}_{sensor_name}_{self.file_name_text}"
                     self.PLOT_MANAGER.save_plot(fig, filename=filename, subdir=subdir)
                     logger.info(f"plot_select_oscillation for measurement: '{self}' for {sensor_name} successful.")
                 except Exception as e:

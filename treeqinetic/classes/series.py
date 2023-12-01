@@ -1,8 +1,12 @@
 from pathlib import Path
+import numpy as np
 import pandas as pd
+from typing import List, Optional, Tuple, Dict
 
 from .base_class import BaseClass
 from .measurement import Measurement
+
+from ..plotting.plot import plot_error_histogram, plot_error_qq
 
 from kj_core import get_logger
 
@@ -30,6 +34,10 @@ class Series(BaseClass):
         # Create df_list and df for all Logs of the series at initialization
         self.df_list = self.get_measurements_df_list()
         self.df = self.get_measurements_df()
+
+        self.osc_df = None
+        self.osc_errors_dict_all = None
+        self.osc_errors_dict_by_sensor = None
 
     def __str__(self):
         return f"Series: '{self.name}' with {self.measurements_count} measurements: {self.measurement_files}"
@@ -62,7 +70,6 @@ class Series(BaseClass):
 
     def get_oscillations_df(self):
         oscillations = self.get_oscillations_list()
-        print(oscillations)
         data = []
 
         for osc in oscillations:
@@ -71,17 +78,127 @@ class Series(BaseClass):
                 'file_name': osc.measurement.file_name,
                 'sensor_name': osc.sensor_name,
                 'sample_rate': osc.sample_rate,
-                'offset': osc.offset,
+                'm_y_shift': osc.m_y_shift,
                 'max_value': osc.max_value,
                 'min_value': osc.min_value,
-                'amplitude': osc.amplitude,
-                'amplitude_2': osc.amplitude_2,
-                'frequency': osc.frequency,
-                'damping_coeff_avg': osc.damping_coeff_avg,
-                'damping_coeff_peaks': osc.damping_coeff_peaks,
-                'damping_coeff_valleys': osc.damping_coeff_valleys,
+                'm_amplitude': osc.m_amplitude,
+                'm_amplitude_2': osc.m_amplitude_2,
+                'm_frequency': osc.m_frequency,
+                'initial_amplitude': osc.initial_amplitude,
+                'damping_coeff': osc.damping_coeff,
+                'angular_frequency': osc.angular_frequency,
+                'phase_angle': osc.phase_angle,
+                'y_shift': osc.y_shift,
+                'metrics_warning': osc.metric_warning,
+                'mse': osc.mse,
+                'mae': osc.mae,
+                'rmse': osc.rmse,
+                'r2': osc.r2,
             }
             data.append(row)
         df = pd.DataFrame(data)
 
         return df
+
+    @staticmethod
+    def normalize_errors(errors: np.ndarray, scale_factor: float) -> np.ndarray:
+        """
+        Normalizes the errors based on the provided scale factor.
+
+        Args:
+            errors (np.ndarray): The array of errors to be normalized.
+            scale_factor (float): The scale factor used for normalization.
+
+        Returns:
+            np.ndarray: Normalized errors.
+        """
+        return errors / scale_factor if scale_factor != 0 else errors
+
+    def collect_and_normalize_errors(self, oscillations: List, sensor_name: str = None) -> np.ndarray:
+        """
+        Collects and normalizes errors for a specific sensor or all sensors combined.
+
+        Args:
+            oscillations (List): List of oscillation objects.
+            sensor_name (str, optional): Specific sensor name to collect errors for. If None, errors for all sensors are collected.
+
+        Returns:
+            np.ndarray: Normalized errors.
+        """
+        if sensor_name:
+            sensor_data = [osc.df_fit[sensor_name] for osc in oscillations if osc.sensor_name == sensor_name]
+            sensor_errors = [osc.errors for osc in oscillations if osc.sensor_name == sensor_name]
+        else:
+            sensor_data = [np.array(osc.df_fit[osc.sensor_name]) for osc in oscillations]
+            sensor_errors = [osc.errors for osc in oscillations]
+
+        scale_factor = max(np.max(np.abs(data)) for data in sensor_data)
+        normalized_errors = np.concatenate(
+            [self.normalize_errors(errors, scale_factor) for errors in sensor_errors])
+
+        return normalized_errors
+
+    def get_osc_errors(self) -> None:
+        """
+        Collects and normalizes errors for each sensor and combined for all sensors.
+
+        This method updates the class attributes osc_errors_dict_by_sensor and osc_errors_dict_all.
+        """
+        oscillations = self.get_oscillations_list()
+        self.osc_errors_dict_by_sensor = {sensor_name: self.collect_and_normalize_errors(oscillations, sensor_name)
+                                          for sensor_name in set(osc.sensor_name for osc in oscillations)}
+        self.osc_errors_dict_all = {"all_fits": self.collect_and_normalize_errors(oscillations)}
+
+    def plot_osc_errors(self, plot_hist: bool = True, hist_trim_percent: float = None, plot_qq: bool = True):
+        """
+        Plots the normalized errors for each sensor and combined for all sensors.
+
+        Args:
+            plot_hist (bool): If True, plots a histogram of the normalized errors.
+            hist_trim_percent (float): Percentage of data to trim from each end for the histogram.
+            plot_qq (bool): If True, plots a QQ plot of the normalized errors.
+        """
+
+        # Stellen Sie sicher, dass die Fehlerdaten verfügbar sind
+        self.get_osc_errors()
+
+        # Plotting für alle Sensoren zusammen
+        if plot_hist or plot_qq:
+            self._plot_error_data(self.osc_errors_dict_all["all_fits"], "all_fits",
+                                  plot_hist, hist_trim_percent, plot_qq)
+
+        # Plotting für jeden Sensor separat
+        for sensor_name, errors in self.osc_errors_dict_by_sensor.items():
+            self._plot_error_data(errors, sensor_name, plot_hist, hist_trim_percent, plot_qq)
+
+    def _plot_error_data(self, errors, title_suffix, plot_hist, hist_trim_percent, plot_qq, sub_dir="series_osc_errors"):
+        """
+        Helper function to plot error data.
+
+        Args:
+            errors (np.ndarray): Array of errors to plot.
+            title_suffix (str): Suffix to append to the plot title.
+            plot_hist (bool): If True, plots a histogram of the errors.
+            hist_trim_percent (float): Percentage of data to trim from histogram.
+            plot_qq (bool): If True, plots a QQ plot of the errors.
+        """
+        if plot_hist:
+            try:
+                fig = plot_error_histogram(errors,
+                                           title=f"Histogram of Normalized Errors for {title_suffix}",
+                                           trim_percent=hist_trim_percent)
+                self.PLOT_MANAGER.save_plot(fig, f"normalized_errors_hist_{title_suffix}",
+                                            subdir=sub_dir)
+                logger.debug(f"plot_error_histogram for {title_suffix}: successful.")
+            except Exception as plot_error:
+                logger.error(f"Error in plot_error_histogram for {title_suffix}: {plot_error}")
+
+        if plot_qq:
+            try:
+                fig = plot_error_qq(errors,
+                                    title=f"QQ Plot of Normalized Errors for {title_suffix}")
+                self.PLOT_MANAGER.save_plot(fig, f"normalized_errors_qq_{title_suffix}",
+                                            subdir=sub_dir)
+                logger.debug(f"plot_error_qq for {title_suffix}: successful.")
+            except Exception as plot_error:
+                logger.error(f"Error in plot_error_qq for {title_suffix}: {plot_error}")

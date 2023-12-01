@@ -1,5 +1,9 @@
 import treeqinetic as ptq
 from pathlib import Path
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Main
 main_path = Path(r"C:\kyellsen\005_Projekte\2023_Kronensicherung_Plesse")
@@ -15,89 +19,37 @@ ptq_series = ptq.classes.Series(name=analyse_name, path=ptq_data_path)
 
 elasto_names = ["Elasto(95)", "Elasto(98)", "Elasto(92)", "Elasto(90)"]
 
-# ptq_series.plot_measurement_sensors(sensor_names=elasto_names)
 
 ptq_series.get_oscillations(sensor_names=elasto_names)
 
-# ptq_series.plot_oscillations_for_measurements(sensor_names=elasto_names, combined=True)
-# ptq_series.plot_oscillations_for_measurements(sensor_names=elasto_names, combined=False)
+ptq_oscillations_ls = ptq_series.get_oscillations_list()
 
-# Definiert eine Liste von Parameternamen
-param_labels = ["initial_amplitude", "damping_coeff", "angular_frequency", "phase_angle", "y_shift"]
+for osc in ptq_oscillations_ls:
+    osc.fit(plot=False, plot_error=False, dir_add="_df", clean_peaks=False, interpolate=True)
 
-# Definiert die Anfangswerte für jeden Parameter
-initial_values = [180, 0.35, 0.44, 0, 0]
-
-# Definiert die Grenzwerte für jeden Parameter
-bounds_values = [(125, 400), (0.2, 5), (0.25, 0.55), (-0.2, 0.2), (-30, 30)]
-
-# Erstellt das initial_params Dictionary mit einer Dictionary-Comprehension
-initial_params = {label: value for label, value in zip(param_labels, initial_values)}
-
-# Erstellt das param_bounds Dictionary auf ähnliche Weise
-param_bounds = {label: bounds for label, bounds in zip(param_labels, bounds_values)}
-
-# Angepasstes metrics_warning-Dictionary
-metrics_warning = {
-    "mse": (0, 1000),  # Keine Untergrenze, Obergrenze bei 1000
-    "mae": (0, 50),    # Keine Untergrenze, Obergrenze bei 50
-    "rmse": (0, 100),  # Keine Untergrenze, Obergrenze bei 100
-    "r2": (0.6, 1)     # Untergrenze bei 0.6, keine Obergrenze
-}
+all_normalized_errors = ptq_series.plot_osc_errors(plot_hist=True, hist_trim_percent=2, plot_qq=True)
 
 
-osc_list = ptq_series.get_oscillations_list()
-
-
-# Dictionary zum Sammeln der Metriken
-collected_metrics = {"mse": [], "mae": [], "rmse": [], "r2": []}
-
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-# # Durchführen der Durchläufe
-# for osc in osc_list:
-#     metrics_dict = osc.fit_and_plot(initial_params, param_bounds, metrics_warning)
-#     if metrics_dict:
-#         for metric in collected_metrics:
-#             collected_metrics[metric].append(metrics_dict.get(metric, np.nan))
+# param_labels = ptq.CONFIG.Oscillation.param_labels
+# metrics_labels = ptq.CONFIG.Oscillation.metrics_labels
+# columns_to_plot = param_labels + metrics_labels
 #
+# # Erstellen Sie für jede Spalte einen eigenen Boxplot
+# for column in columns_to_plot:
+#     # Erstellen eines neuen Plots
+#     plt.figure(figsize=(10, 6))
 #
-# # Statistische Analyse der gesammelten Metriken
-# analyzed_metrics = {metric: {"mean": np.mean(values), "median": np.median(values),
-#                              "std_dev": np.std(values)} for metric, values in collected_metrics.items()}
+#     # Kombinieren von df und df2 für den aktuellen Parameter in einem DataFrame
+#     combined_df = pd.concat([df[column], df2[column]], axis=1)
+#     combined_df.columns = ['df', 'df2']
 #
-# # Jetzt enthält analyzed_metrics statistische Kennzahlen für jede Metrik
-# print(analyzed_metrics)
+#     # Erstellen des Boxplots mit Seaborn
+#     sns.boxplot(data=combined_df)
 #
+#     # Titel und Achsenbeschriftungen hinzufügen
+#     plt.title(f'Boxplot für {column}')
+#     plt.xlabel('DataFrame')
+#     plt.ylabel(column)
 #
-# # Konvertierung der Daten in ein pandas DataFrame
-# metrics_df = pd.DataFrame(analyzed_metrics).T  # Transponieren, um Metriken als Zeilen zu haben
-#
-# # Erstellen des Plots für die Durchschnittswerte
-# plt.figure(figsize=(10, 6))
-# sns.barplot(data=metrics_df, x=metrics_df.index, y='mean')
-# plt.title('Mean')
-# plt.ylabel('Mean')
-# plt.xlabel('Metrik')
-# plt.show()
-#
-# # Erstellen des Plots für die Durchschnittswerte
-# plt.figure(figsize=(10, 6))
-# sns.barplot(data=metrics_df, x=metrics_df.index, y='median')
-# plt.title('Median')
-# plt.ylabel('Median')
-# plt.xlabel('Metrik')
-# plt.show()
-#
-#
-# # Erstellen des Plots für die Standardabweichungen
-# plt.figure(figsize=(10, 6))
-# sns.barplot(data=metrics_df, x=metrics_df.index, y='std_dev')
-# plt.title('StdDev')
-# plt.ylabel('StdDev')
-# plt.xlabel('Metrik')
-# plt.show()
-
+#     # Anzeigen des Plots
+#     plt.show()

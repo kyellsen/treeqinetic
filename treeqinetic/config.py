@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+import numpy as np
 
 from kj_core.core_config import CoreConfig
 
@@ -20,3 +21,15 @@ class Config(CoreConfig):
         Initializes the configuration settings, building upon the core configuration.
         """
         super().__init__(working_directory, log_level)
+
+    class Oscillation:
+        param_labels = ["initial_amplitude", "damping_coeff", "angular_frequency", "phase_angle", "y_shift"]
+        metrics_labels = ["mse", "mae", "rmse", "r2"]
+
+        # Definiert die Anfangswerte für jeden Parameter
+        initial_param_values = [180, 0.35, 0.44, 0, 0]
+        # Definiert die Grenzwerte für jeden Parameter
+        bounds_values = [(130, 300), (0.1, 2), (0.1, 1), (0, 1), (-50, 50)]
+        # Definiere die Metrics Warnings
+        error = 500
+        metrics_warning_values = [(0, error), (0, np.sqrt(error) * 0.8), (0, np.sqrt(error)), (-10, 10)]

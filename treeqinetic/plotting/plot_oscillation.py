@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict
 
-from ..analyse.fitting_functions import exp_decreasing, damped_osc
+from ..analyse.fitting_functions import damped_osc
 
 
 def extract_peak_valley_info(peaks: List[Dict[str, float]], valleys: List[Dict[str, float]]) -> Tuple[
@@ -26,86 +26,23 @@ def extract_peak_valley_info(peaks: List[Dict[str, float]], valleys: List[Dict[s
     return peak_times, peak_values, valley_times, valley_values
 
 
-def plot_oscillation(data: pd.DataFrame, sensor_name: str, with_peaks: bool, peaks: List[Dict[str, float]],
-                     valleys: List[Dict[str, float]], max_value: float, min_value: float, with_amplitude: bool,
-                     amplitude: Optional[float], amplitude_2: Optional[float], with_damping: bool,
-                     damping_coeff_peaks: Optional[float], damping_coeff_valleys: Optional[float]) -> plt.Figure:
-    """
-    Plots oscillation data with optional features like peaks, valleys, amplitude, and damping.
-
-    Parameters:
-    data pd.DataFrame: Oscillation data.
-    sensor_name (str): Name of the sensor.
-    with_peaks (bool): Whether to plot peaks or not.
-    peaks (List[Dict[str, float]]): Peak data.
-    valleys (List[Dict[str, float]]): Valley data.
-    max_value (float): Maximum value for amplitude.
-    min_value (float): Minimum value for amplitude.
-    with_amplitude (bool): Whether to plot amplitude or not.
-    amplitude (Optional[float]): Amplitude value.
-    amplitude_2 (Optional[float]): Second amplitude value.
-    with_damping (bool): Whether to plot damping or not.
-    damping_coeff_peaks (Optional[float]): Damping coefficient for peaks.
-    damping_coeff_valleys (Optional[float]): Damping coefficient for valleys.
-
-    Returns:
-    plt.Figure: The plotted figure.
-    """
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(data['Sec_Since_Start'], data[sensor_name], label='Data', alpha=0.7)
-    ax.scatter(data['Sec_Since_Start'], data[sensor_name], s=10, c='black', zorder=2, alpha=0.7)
-
-    peak_times, peak_values, valley_times, valley_values = extract_peak_valley_info(peaks, valleys)
-
-    if with_peaks:
-        ax.scatter(peak_times, peak_values, c='red', marker='v', zorder=3, label='Peaks')
-        ax.scatter(valley_times, valley_values, c='green', marker='^', zorder=3, label='Valleys')
-        ax.scatter(peak_times[1], peak_values[1], c='orange', marker='v', zorder=5, label='Peak1')
-
-    if with_amplitude:
-        if amplitude is not None:
-            ax.errorbar(peak_times[0], (max_value + min_value) / 2, yerr=amplitude, fmt='none', ecolor='purple',
-                        capsize=10, label='Amplitude', zorder=4)
-        if amplitude_2 is not None:
-            ax.errorbar(peak_times[1], (peak_values[1] + min_value) / 2, yerr=amplitude_2, fmt='none', ecolor='green',
-                        capsize=10, label='Amplitude_2', zorder=4)
-
-    if with_damping:
-        min_time = min(min(peak_times), min(valley_times))
-        max_time = max(max(peak_times), max(valley_times))
-        time_values = np.linspace(min_time, max_time, 500)
-
-        if damping_coeff_peaks is not None:
-            ax.plot(time_values, exp_decreasing(time_values - min_time, peak_values[0], damping_coeff_peaks),
-                    label='Damping (Peaks)', linestyle='--', alpha=0.7)
-        if damping_coeff_valleys is not None:
-            ax.plot(time_values, exp_decreasing(time_values - min_time, valley_values[0], damping_coeff_valleys),
-                    label='Damping (Valleys)', linestyle='--', alpha=0.7)
-
-    plt.title(f"Oscillation {sensor_name}")
-    plt.xlabel("Time (Sec)")
-    plt.ylabel(f"Elongation/Inclination [µm/°] {sensor_name}")
-    plt.legend()
-
-    return fig
-
-
 def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, param_labels: List,
-                 params_optimal: np.ndarray,
-                 metrics: dict = None, peaks: List = None, valleys: List = None):
+                 param_optimal: np.ndarray,
+                 metrics: dict = None, metrics_warning: bool = False, peaks: List = None, valleys: List = None):
     # Berechnung der angepassten Schwingung
 
     time_correct = (data_orig['Sec_Since_Start'].max() - data['Sec_Since_Start'].max())
     data_orig['Sec_Since_Start'] = data_orig['Sec_Since_Start'] - time_correct
 
-    time_for_fit = np.linspace(0, data['Sec_Since_Start'].max(), 3000)
-    fitted_oscillation = damped_osc(time_for_fit, *params_optimal)
+    time_for_fit = np.linspace(0, data['Sec_Since_Start'].max(), 2500)
+    fitted_oscillation = damped_osc(time_for_fit, *param_optimal)
 
-    fig = plt.figure(figsize=(10, 6))
+    fig = plt.figure()
     plt.plot(data['Sec_Since_Start'], data[sensor_name], color='black', zorder=2, label="Modified Measurement")
+    # plt.scatter(data['Sec_Since_Start'], data[sensor_name], marker='.', s=5, c='blue', zorder=1, alpha=0.5,
+    #             label="New Points")
     plt.plot(data_orig['Sec_Since_Start'], data_orig[sensor_name], color='grey', zorder=1, label="Original Measurement")
-    plt.scatter(data_orig['Sec_Since_Start'], data_orig[sensor_name], marker='*', s=10, c='red', zorder=3, alpha=1,
+    plt.scatter(data_orig['Sec_Since_Start'], data_orig[sensor_name], marker='*', s=10, c='blue', zorder=4, alpha=1,
                 label="Original Points")
 
     if peaks is not None and valleys is not None:
@@ -113,32 +50,37 @@ def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, 
 
         peak_times = peak_times - time_correct
         valley_times = valley_times - time_correct
-        plt.scatter(peak_times, peak_values, c='red', marker='v', zorder=4, label='Peaks')
-        plt.scatter(valley_times, valley_values, c='green', marker='^', zorder=4, label='Valleys')
+        plt.scatter(peak_times, peak_values, c='red', marker='v', zorder=5, label='Peaks')
+        plt.scatter(valley_times, valley_values, c='green', marker='^', zorder=5, label='Valleys')
 
-    plt.plot(time_for_fit, fitted_oscillation, label="Fitted Function", color="green")
+    plt.plot(time_for_fit, fitted_oscillation, label="Fitted Function", color="red", zorder=3)
     plt.title(f"Oscillation {sensor_name} and fitted Funktion")
     plt.xlabel("Time (Sec)")
     plt.ylabel(f"Elongation/Inclination [µm/°] {sensor_name}")
 
     # Parameterbezeichnungen und deren Werte formatieren
-    optimal_params_dict = {label: param for label, param in zip(param_labels, params_optimal)}
+    param_optimal_dict = {label: param for label, param in zip(param_labels, param_optimal)}
 
-    params_text = "Optimal Params:\n"
-    # Ergänzt params_text um alle Parameter aus optimal_params_dict
-    for label, value in optimal_params_dict.items():
-        params_text += f"{label}: {value:.2f}\n"
+    param_text = "Optimal Params:\n"
+    # Ergänzt param_text um alle Parameter aus optimal_param_dict
+    for label, value in param_optimal_dict.items():
+        param_text += f"{label}: {value:.2f}\n"
 
-    # Ergänzt params_text um alle Metriken aus dem metrics dict, falls vorhanden
+    # Ergänzt param_text um alle Metriken aus dem metrics dict, falls vorhanden
     if metrics is not None:
-        params_text += "\nMetrics:\n"
+        param_text += "\nMetrics:\n"
         for metric, value in metrics.items():
-            params_text += f"{metric}: {value:.2f}\n"
+            param_text += f"{metric}: {value:.2f}\n"
 
     # Hinzufügen der formatierten Parameter zum Plot in der oberen rechten Ecke
-    plt.annotate(params_text, xy=(0.95, 0.95), xycoords='axes fraction', fontsize=10,
+    plt.annotate(param_text, xy=(0.95, 0.95), xycoords='axes fraction', fontsize=10,
                  bbox=dict(boxstyle="round,pad=0.3", facecolor='white', edgecolor='black'),
                  verticalalignment='top', horizontalalignment='right')
+
+    # Anzeige von "Warning" in rot und fett, falls metrics_warning True ist
+    if metrics_warning:
+        plt.annotate("Metrics Warning", xy=(0.95, 0.5), xycoords='axes fraction', fontsize=20,
+                     color='red', fontweight='bold', verticalalignment='top', horizontalalignment='right')
 
     plt.legend(loc="lower right")
     return fig

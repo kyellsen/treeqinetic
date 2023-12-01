@@ -1,17 +1,17 @@
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, Tuple, Optional
 
-from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 
 from .base_class import BaseClass
 
+from ..plotting.plot import plot_error_histogram
 from ..plotting import plot_oscillation
-from ..analyse.fitting_functions import exp_decreasing
+from ..analyse.calcs_utils import calc_sample_rate, calc_amplitude, calc_min_max, convert_dict_to_list
 from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
     interpolate_points
-from ..analyse.fitting_functions import fit_damped_osc, calc_metrics, convert_dict_to_list
+from ..analyse.fitting_functions import damped_osc, fit_damped_osc, calc_metrics
 
 from kj_core import get_logger
 
@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 
 
 class Oscillation(BaseClass):
+
     def __init__(self, measurement, sensor_name, start_index, df: pd.DataFrame):
         super().__init__()
 
@@ -32,238 +33,436 @@ class Oscillation(BaseClass):
         # Normalize the 'Sec_Since_Start' column by subtracting its minimum value
         self.df = zero_base_column(self.df, "Sec_Since_Start")
 
-        self.df_fit = self.df.copy()
+        self.df_fit = None
 
         # Initialize attributes with placeholder values
-        self.offset = None
         self.sample_rate = None
-        self.max_value = None
-        self.min_value = None
-        self.max_idx = None
-        self.min_idx = None
 
+        self.max_idx = None
+        self.max_time = None
+        self.max_value = None
+
+        self.min_idx = None
+        self.min_time = None
+        self.min_value = None
 
         self.peaks = []
         self.valleys = []
 
-        # params for manuell fitting
-        self.amplitude = None
-        self.amplitude_2 = None
-        self.frequency = None
-        self.damping_coeff_peaks = None
-        self.damping_coeff_valleys = None
-        self.damping_coeff_avg = None
-        self.fit_data = None
+        # param from manuell fitting
+        self.m_amplitude = None
+        self.m_amplitude_2 = None
+        self.m_frequency = None
+        self.m_y_shift = None
 
-        # params from automatic fitting
+        # param from automatic fitting
+        self.param_optimal = None
+        self.param_optimal_dict = None
+
         self.initial_amplitude = None
         self.damping_coeff = None
         self.angular_frequency = None
         self.phase_angle = None
         self.y_shift = None
 
-        # Perform calculations
-        # self.calculate_offset()
+        # Quality metrics from fitting
+        self.metrics_dict = None
+        self.metric_warning = False
 
-        self.calculate_sample_rate()
+        self.mse = None
+        self.mae = None
+        self.rmse = None
+        self.r2 = None
 
-        self.calculate_min_max()
-        self.calculate_peaks_and_valleys()
-        self.calculate_amplitude()
-        self.calculate_amplitude_2()
-        self.calculate_frequency()
+        self.errors = None
 
-        self.calculate_damping_coefficient()
-        # self.fit_damped_oscillation()
-        # self.plot_oscillation_fitting()
+        # Perform manuel calculations
+        self.calc_m_y_shift()
+
+        self.sample_rate = calc_sample_rate(self.df, "Sec_Since_Start")
+        self.m_amplitude = calc_amplitude(self.df, self.sensor_name)
+        self.calc_min_max()
+        self.calc_peaks_and_valleys()
+        self.calc_m_amplitude_2()
+        self.calc_m_frequency()
 
     def __str__(self):
         return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
 
-    def calculate_offset(self, window_size=5, last_percent=60):
-        last_points = int(last_percent/100 * len(self.df))
+    def calc_m_y_shift(self, window_size: int = 5, last_percent: float = 60) -> float:
+        """
+        Calculates and applies a y_shift based on the rolling mean of the last percentage of data.
+
+        This method modifies the sensor data by subtracting the calculated y_shift.
+
+        Args:
+            window_size (int): The size of the moving window for calculating the mean. Default is 5.
+            last_percent (float): The percentage of the latest data points to consider for the y_shift calculation. Default is 60.
+
+        Returns:
+            float: The calculated y_shift value.
+        """
+        # Calculate the number of points for the specified percentage of the data
+        last_points = int(last_percent / 100 * len(self.df))
+        # Retrieve the last part of the data for the specified sensor
         last_data = self.df[self.sensor_name][last_points:]
-        offset = last_data.rolling(window=window_size).mean().dropna().mean()
-        self.offset = offset
-        self.df[self.sensor_name] -= self.offset
+        # Calculate the y_shift as the mean of the rolling mean
+        y_shift = last_data.rolling(window=window_size).mean().dropna().mean()
+        # Apply the y_shift to the sensor data
+        # self.df[self.sensor_name] -= y_shift
+        # Store and return the y_shift
+        self.m_y_shift = y_shift
+        return y_shift
 
-    # Methode zur Berechnung der Sample-Rate in Hz
-    def calculate_sample_rate(self):
-        # Zeitwerte aus dem DataFrame extrahieren
-        time_values = self.df['Sec_Since_Start'].values
-        # Zeitdifferenz zwischen aufeinanderfolgenden Messungen berechnen
-        time_deltas = np.diff(time_values)
-        # Durchschnittliche Zeitdifferenz berechnen
-        mean_time_delta = np.mean(time_deltas)
-        # Sample-Rate in Hz berechnen (1 / Durchschnittliche Zeitdifferenz)
-        sample_rate = 1 / mean_time_delta
-        # Speichern der Sample-Rate im Objekt
-        self.sample_rate = sample_rate
+    def calc_min_max(self) -> dict:
+        """
+        Calculates and stores the minimum and maximum values, their corresponding indices, and times for the specified sensor.
 
-    def calculate_min_max(self):
+        This method utilizes the 'calc_min_max' function to perform the calculation.
+
+        Returns:
+            dict: A dictionary containing 'max' and 'min' information, each with 'idx', 'time', and 'value'.
+
+        Raises:
+            RuntimeError: If the calculation fails.
+        """
         try:
-            self.max_value = self.df[self.sensor_name].max()
-            self.min_value = self.df[self.sensor_name].min()
-            self.max_idx = self.df[self.sensor_name].max()
-            self.min_idx = self.df[self.sensor_name].min()
-            logger.debug(f"Calculated min, max, idxmin, and idxmax for sensor {self.sensor_name}.")
+            min_max_dict = calc_min_max(self.df, self.sensor_name, 'Sec_Since_Start')
+            self.max_idx = min_max_dict['max']['idx']
+            self.max_time = min_max_dict['max']['time']
+            self.max_value = min_max_dict['max']['value']
+            self.min_idx = min_max_dict['min']['idx']
+            self.min_time = min_max_dict['min']['time']
+            self.min_value = min_max_dict['min']['value']
+
+            logger.debug(f"Calculated min and max (idx, time and value) for sensor {self.sensor_name}.")
+            return min_max_dict
+
         except Exception as e:
-            logger.error(f"Failed to calculate min, max, idxmin, and idxmax for sensor {self.sensor_name}: {e}")
+            logger.error(f"Failed to calculate min and max (idx, time and value) for sensor {self.sensor_name}: {e}")
+            raise RuntimeError(f"Failed to calculate min and max: {e}")
 
-    def calculate_amplitude(self):
-        try:
-            self.amplitude = (self.max_value - self.min_value) / 2
-            logger.debug(f"Calculated amplitude for sensor {self.sensor_name}.")
-        except Exception as e:
-            logger.error(f"Failed to calculate amplitude for sensor {self.sensor_name}: {e}")
+    def calc_peaks_and_valleys(self, min_distance_sec: float = 1.0, search_range: float = 0.75,
+                               prominence: float = 5.0) -> Dict:
+        """
+        Identifies peaks and valleys in the sensor data within a specified search range.
 
-    def calculate_peaks_and_valleys(self, min_distance_sec=1, search_range=0.75, prominence=5):
-        min_distance = float(
-            min_distance_sec * self.sample_rate)  # Mindestabstand von 1 Sekunde, umgerechnet in Samples
-        cut_idx = int(len(self.df) * search_range)  # Index, der die ersten 75% der Daten kennzeichnet
+        Args:
+            min_distance_sec (float): Minimum distance between peaks/valleys in seconds. Default is 1.0 second.
+            search_range (float): Proportion of the data to search for peaks/valleys, given as a fraction (0 to 1). Default is 0.75 (75%).
+            prominence (float): Required prominence of peaks/valleys. Default is 5.
 
-        idxpeaks, _ = find_peaks(self.df[self.sensor_name][:cut_idx], distance=min_distance, prominence=prominence)
-        idxvalleys, _ = find_peaks(-self.df[self.sensor_name][:cut_idx], distance=min_distance, prominence=prominence)
+        Updates:
+            self.peaks (list): List of dictionaries containing peak information ('index', 'time', and 'value').
+            self.valleys (list): Similar to self.peaks, but for valleys.
+        """
+        min_distance_samples = float(min_distance_sec * self.sample_rate)
+        cut_idx = int(len(self.df) * search_range)
 
-        for idx in idxpeaks:
-            time = self.df['Sec_Since_Start'].iloc[idx]
-            value = self.df[self.sensor_name].iloc[idx]
-            self.peaks.append({'index': idx, 'time': time, 'value': value})
+        idx_peaks, _ = find_peaks(self.df[self.sensor_name][:cut_idx], distance=min_distance_samples,
+                                  prominence=prominence)
+        idx_valleys, _ = find_peaks(-self.df[self.sensor_name][:cut_idx], distance=min_distance_samples,
+                                    prominence=prominence)
 
-        for idx in idxvalleys:
-            time = self.df['Sec_Since_Start'].iloc[idx]
-            value = self.df[self.sensor_name].iloc[idx]
-            self.valleys.append({'index': idx, 'time': time, 'value': value})
+        self.peaks = [
+            {'index': idx, 'time': self.df['Sec_Since_Start'].iloc[idx], 'value': self.df[self.sensor_name].iloc[idx]}
+            for idx in idx_peaks]
+        self.valleys = [
+            {'index': idx, 'time': self.df['Sec_Since_Start'].iloc[idx], 'value': self.df[self.sensor_name].iloc[idx]}
+            for idx in idx_valleys]
 
-        # Überprüfen, ob der Wert des ersten Peaks kleiner als der des zweiten ist
         if len(self.peaks) > 1 and self.peaks[0]['value'] < self.peaks[1]['value']:
-            # Ersten Peak entfernen
             del self.peaks[0]
 
-        # Peak am Index 0 mit dem Wert self.max hinzufügen
-        self.peaks.insert(0, {'index': 0, 'time': self.df['Sec_Since_Start'].iloc[0], 'value': self.max_value})
+        self.peaks.insert(0, {'index': 0, 'time': self.df['Sec_Since_Start'].iloc[0],
+                              'value': self.df[self.sensor_name].max()})
 
-    def calculate_amplitude_2(self):
+        return {"peaks:": self.peaks, "valleys": self.valleys}
+
+    def calc_m_amplitude_2(self):
         try:
-            self.amplitude_2 = (self.peaks[1]['value'] - self.min_value) / 2
+            self.m_amplitude_2 = (self.peaks[1]['value'] - self.min_value) / 2
             logger.debug(f"Calculated amplitude_2 for sensor {self.sensor_name}.")
+
         except Exception as e:
-            self.amplitude_2 = self.amplitude / 2
+            self.m_amplitude_2 = self.m_amplitude / 2
             logger.warning(
                 f"Failed to calculate amplitude_2 for sensor {self.sensor_name}. Using half of amplitude as fallback. Error: {e}")
+        return self.m_amplitude_2
 
-    def calculate_frequency(self):
-        # Extrahieren der Zeitwerte für Peaks und Valleys aus den Dictionaries
-        peak_times = np.array([peak['time'] for peak in self.peaks])
-        valley_times = np.array([valley['time'] for valley in self.valleys])
+    def calc_m_frequency(self) -> Optional[float]:
+        """
+        Calculates the mean frequency based on the time intervals between peaks and valleys.
 
-        time_deltas_peaks = np.diff(peak_times)
-        time_deltas_valleys = np.diff(valley_times)
-        mean_time_delta = np.mean(np.concatenate((time_deltas_peaks, time_deltas_valleys)))
-        self.frequency = 1 / mean_time_delta
+        This method extracts time values from the 'peaks' and 'valleys' attributes of the class,
+        computes the time differences between consecutive peaks and valleys, and then calculates
+        the mean of these time differences. The inverse of this mean time delta is considered as
+        the mean frequency, which is then set to the 'm_frequency' attribute.
 
-    def calculate_damping_coefficient(self):
+        Returns:
+            The calculated mean frequency as a float, if successful. Returns None if the calculation
+            cannot be completed due to data issues.
+        """
+
         try:
-            # Extract peak and valley times and values from the dictionaries
+            # Extracting time values for peaks and valleys
             peak_times = np.array([peak['time'] for peak in self.peaks])
-            peak_values = np.array([peak['value'] for peak in self.peaks])
             valley_times = np.array([valley['time'] for valley in self.valleys])
-            valley_values = np.array([valley['value'] for valley in self.valleys])
 
-            # Fit exponential decaying function to peaks
-            params_peak, _ = curve_fit(exp_decreasing, peak_times - peak_times[0], peak_values,
-                                       p0=[peak_values[0], 0.1])
-            initial_amplitude_peak, damping_coeff_peak = params_peak
+            # Ensure there are enough data points to calculate differences
+            if len(peak_times) < 2 or len(valley_times) < 2:
+                logger.warning("Insufficient data points in peaks or valleys for frequency calculation.")
+                return None
 
-            # Fit exponential decaying function to valleys
-            params_valley, _ = curve_fit(exp_decreasing, valley_times - valley_times[0], valley_values,
-                                         p0=[valley_values[0], 0.3])
-            initial_amplitude_valley, damping_coeff_valley = params_valley
+            # Calculating time deltas
+            time_deltas_peaks = np.diff(peak_times)
+            time_deltas_valleys = np.diff(valley_times)
 
-            # Calculate the average damping coefficient
-            damping_coeff_avg = (damping_coeff_peak + damping_coeff_valley) / 2
+            # Concatenating and computing mean
+            mean_time_delta = np.mean(np.concatenate((time_deltas_peaks, time_deltas_valleys)))
 
-            # Save the individual and average damping coefficients to the object
-            self.damping_coeff_peaks = damping_coeff_peak
-            self.damping_coeff_valleys = damping_coeff_valley
-            self.damping_coeff_avg = damping_coeff_avg
+            # Prevent division by zero
+            if mean_time_delta == 0:
+                logger.error("Mean time delta is zero, cannot calculate frequency.")
+                return None
 
-        except Exception as e:
-            logger.error(f"Failed to calculate damping coefficients: {e}")
-            return None, None, None
-
-    def plot_oscillation(self, with_peaks=True, with_amplitude=True, with_damping=True):
-        """
-
-        """
-        try:
-            fig = plot_oscillation.plot_oscillation(self.df, self.sensor_name, with_peaks, self.peaks, self.valleys,
-                                                    self.max_value,
-                                                    self.min_value, with_amplitude, self.amplitude, self.amplitude_2,
-                                                    with_damping,
-                                                    self.damping_coeff_peaks, self.damping_coeff_valleys)
-            self.PLOT_MANAGER.save_plot(fig,
-                                        f"{self.measurement.file_name}_{self.measurement.id}_{self.sensor_name}",
-                                        subdir="oscillation_1")
-            logger.info(f"plot_oscillation for measurement: '{self}' successful.")
-        except Exception as e:
-            logger.error(f"Failed to plot_oscillation: '{self}'. Error: {e}")
-
-    def fit_and_plot(self, initial_params: Dict[str, float], param_bounds: Dict[str, float],
-                     metrics_warning: Dict[str, Tuple[Optional[float], Optional[float]]] = None):
-        try:
-            param_labels = list(initial_params.keys())
-
-            initial_params_list = convert_dict_to_list(initial_params)
-            lower_bounds, upper_bounds = zip(*convert_dict_to_list(param_bounds))
-            param_bounds_list = (lower_bounds, upper_bounds)
-
-            sensor_name = self.sensor_name
-            data_orig = self.df
-            data = data_orig.copy()
-            data = clean_peaks_and_valleys(data, sensor_name, self.peaks, self.valleys)
-            data = interpolate_points(data, sensor_name, 50)
-            data = remove_values_above_percentage(data, sensor_name, self.amplitude_2, 200)
-
-            params_optimal = fit_damped_osc(data, sensor_name, initial_params=initial_params_list,
-                                            param_bounds=param_bounds_list)
-
-            metrics_dict = calc_metrics(data, sensor_name, params_optimal=params_optimal)
-
-            if metrics_warning is not None:
-                # Überprüft jedes Metrik-Element
-                for metric, (lower_threshold, upper_threshold) in metrics_warning.items():
-                    metric_value = metrics_dict.get(metric, 0)
-                    if (lower_threshold is not None and metric_value < lower_threshold) or \
-                            (upper_threshold is not None and metric_value > upper_threshold):
-                        logger.warning(
-                            f"{self.measurement.id}_{self.sensor_name}: '{metric}' metric value {metric_value} outside of threshold range {lower_threshold}-{upper_threshold}")
-            # ...
-
-            fig = plot_oscillation.plot_osc_fit(data, data_orig, sensor_name, param_labels=param_labels,
-                                                params_optimal=params_optimal, metrics=metrics_dict,
-                                                peaks=self.peaks,
-                                                valleys=self.valleys)
-
-            self.PLOT_MANAGER.save_plot(fig,
-                                        f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
-                                        subdir="oscillation_fit_1")
-            logger.info(f"fit_and_plot for measurement: '{self}' successful.")
-            return metrics_dict
-
+            # Calculating frequency
+            self.m_frequency = 1 / mean_time_delta
+            return self.m_frequency
 
         except Exception as e:
-            logger.error(f"Failed to fit_and_plot: '{self}'. Error: {e}")
-
+            logger.critical(f"Unexpected error occurred during frequency calculation: {e}", exc_info=True)
             return None
 
-    def correct_osc(self):
-        pass
+    def get_initial_param(self):
+        initial_param_labels = self.CONFIG.Oscillation.param_labels
+        initial_param_values = self.CONFIG.Oscillation.initial_param_values
 
-    def fit_osc(self, initial_params: Dict[str, float], param_bounds: Dict[str, float],
-                metrics_warning: Dict[str, Tuple[Optional[float], Optional[float]]] = None):
+        initial_param_dict = {label: value for label, value in zip(initial_param_labels, initial_param_values)}
 
-        pass
+        return initial_param_dict
 
-    def plot_osc(self):
-        pass
+    def get_param_bounds(self):
+        initial_param_labels = self.CONFIG.Oscillation.param_labels
+        bounds_values = self.CONFIG.Oscillation.bounds_values
+        param_bounds_dict = {label: bounds for label, bounds in zip(initial_param_labels, bounds_values)}
+
+        return param_bounds_dict
+
+    def get_metrics_warning(self):
+        metrics_labels = self.CONFIG.Oscillation.metrics_labels
+        metrics_warning_values = self.CONFIG.Oscillation.metrics_warning_values
+        metrics_warning_dict = {label: value for label, value in zip(metrics_labels, metrics_warning_values)}
+
+        return metrics_warning_dict
+
+    def fit(self, initial_param: Dict[str, float] = None, param_bounds: Dict[str, Tuple] = None,
+            metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]] = None,
+            plot: bool = True, plot_error: bool = False, dir_add: str = None, clean_peaks=True, interpolate=True,
+            remove_values_above=True) -> None:
+        """
+        Fits the model to the data using the provided initial parameters and parameter bounds.
+        It calculates optimal parameters, metrics, and optionally plots the results.
+
+        The function involves several steps:
+        1. Preparing the data.
+        2. Calculating optimal parameters.
+        3. Computing metrics based on the optimal parameters.
+        4. Optionally plotting the results if `plot` is True.
+
+        Parameters:
+        - initial_param: A dictionary of initial parameter values.
+        - param_bounds: A dictionary of tuples representing the lower and upper bounds for each parameter.
+        - metrics_warning: An optional dictionary specifying warning thresholds for each metric.
+        - plot: A boolean flag to indicate whether to generate a plot.
+        - dir_add
+
+        Returns:
+        - None
+        """
+        if initial_param is None:
+            initial_param = self.get_initial_param()
+        if param_bounds is None:
+            param_bounds = self.get_param_bounds()
+        if metrics_warning is None:
+            metrics_warning = self.get_metrics_warning()
+
+        try:
+            self.get_df_fit(clean_peaks, interpolate, remove_values_above)
+            self.calc_param_optimal(initial_param, param_bounds)
+            self.calc_metrics(metrics_warning)
+            self.calc_errors()
+
+            self.set_fit_attributes()
+            logger.info(f"fit for measurement: '{self}' successful.")
+
+            if plot:
+                self.plot_fit(dir_add)
+            if plot_error:
+                self.plot_fit_errors(dir_add)
+
+        except Exception as e:
+            logger.critical(f"Error in fit method: {e}", exc_info=True)
+
+    def get_df_fit(self, clean_peaks, interpolate, remove_values_above) -> None:
+        """
+        Prepares the dataframe for fitting by cleaning and interpolating data.
+
+        This method performs the following operations on the dataframe:
+        1. Copies the original dataframe.
+        2. Cleans peaks and valleys.
+        3. Interpolates points.
+        4. Removes values above a certain percentage threshold.
+
+        Returns:
+        - None
+        """
+        try:
+            df_fit = self.df.copy()
+            if clean_peaks:
+                df_fit = clean_peaks_and_valleys(df_fit, self.sensor_name, self.peaks, self.valleys)
+            if interpolate:
+                df_fit = interpolate_points(df_fit, self.sensor_name, 50)
+            if remove_values_above:
+                df_fit = remove_values_above_percentage(df_fit, self.sensor_name, self.m_amplitude_2, 200)
+            self.df_fit = df_fit
+        except Exception as e:
+            logger.error(f"Error in get_df_fit: {e}")
+
+    def calc_param_optimal(self, initial_param: Dict[str, float],
+                            param_bounds: Dict[str, Tuple[float, float]]) -> None:
+        """
+        Calculates the optimal parameters for the model.
+
+        Parameters:
+        - initial_param: A dictionary of initial parameter values.
+        - param_bounds: A dictionary of tuples representing the lower and upper bounds for each parameter.
+
+        Returns:
+        - None
+        """
+        try:
+            initial_param_list = convert_dict_to_list(initial_param)
+            lower_bounds, upper_bounds = zip(*convert_dict_to_list(param_bounds))
+            param_bounds_list = (lower_bounds, upper_bounds)
+            self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
+                                                 param_bounds=param_bounds_list)
+            param_labels = self.CONFIG.Oscillation.param_labels
+            self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
+        except Exception as e:
+            logger.error(f"Error in calc_param_optimal: {e}")
+
+    def calc_metrics(self, metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]]) -> \
+            Dict[str, float]:
+        """
+        Calculates and evaluates metrics based on the fitted model parameters.
+
+        This method computes various metrics to assess the quality of the fit and checks them against
+        optional warning thresholds. If a metric falls outside its specified threshold range, a warning
+        is logged.
+
+        Args:
+            metrics_warning: An optional dictionary where each key is a metric name, and its value is a
+                             tuple (lower_threshold, upper_threshold). If a metric is outside this range,
+                             a warning is logged.
+
+        Returns:
+            A dictionary of calculated metrics.
+        """
+
+        try:
+            metrics_values = calc_metrics(self.df_fit, self.sensor_name, self.param_optimal)
+        except Exception as e:
+            logger.error(f"Error in calculating metrics: {e}", exc_info=True)
+            return {}
+
+        metrics_labels = self.CONFIG.Oscillation.metrics_labels
+        metrics_dict = {label: value for label, value in zip(metrics_labels, metrics_values)}
+
+        for metric, (lower_threshold, upper_threshold) in metrics_warning.items():
+            metric_value = metrics_dict.get(metric, 0)
+            if (lower_threshold is not None and metric_value < lower_threshold) or \
+                    (upper_threshold is not None and metric_value > upper_threshold):
+                logger.warning(
+                    f"{self.measurement.id}_{self.sensor_name}: '{metric}' metric value {metric_value} "
+                    f"outside of threshold range {lower_threshold}-{upper_threshold}")
+                self.metric_warning = True
+
+        self.metrics_dict = metrics_dict
+        return metrics_dict
+
+    # Funktion zur Berechnung der Fehler
+    def calc_errors(self) -> np.ndarray:
+        """
+        Calculates the errors (residuals) between the observed data and the model predictions.
+
+        Args:
+        data (pd.DataFrame): DataFrame containing the original data.
+        sensor_name (str): Column name of the sensor data.
+        param_optimal (np.ndarray): Optimal parameters from the curve fitting.
+
+        Returns:
+        np.ndarray: Array of residuals/errors for each data point.
+        """
+        fitted_values = damped_osc(self.df_fit['Sec_Since_Start'], *self.param_optimal)
+        errors = self.df_fit[self.sensor_name] - fitted_values
+        self.errors = errors
+        return errors
+
+    def plot_fit(self, dir_add: Optional[str] = None) -> None:
+        """
+        Plots the fitting results and saves the plot.
+
+        Parameters:
+        - dir_add: Optional sub-directory name for saving the plot.
+        """
+        try:
+            fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name,
+                                                self.param_optimal_dict, self.param_optimal,
+                                                self.metrics_dict, metrics_warning=self.metric_warning, peaks=self.peaks, valleys=self.valleys)
+
+            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
+                                        subdir=f"osc_fit_1{dir_add}")
+            logger.debug(f"Plot for measurement: '{self}' successful.")
+        except Exception as plot_error:
+            logger.error(f"Error in plotting: {plot_error}")
+            
+            
+    def plot_fit_errors(self, dir_add: Optional[str] = None) -> None:
+        """
+        Plots the fitting results and saves the plot.
+
+        Parameters:
+        - dir_add: Optional sub-directory name for saving the plot.
+        """
+        try:
+            fig = plot_error_histogram(self.errors, show_plot=False)
+
+            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
+                                        subdir=f"osc_fit_errors_1{dir_add}")
+            logger.debug(f"Plot for measurement: '{self}' successful.")
+        except Exception as e:
+            logger.error(f"Error in plotting: {e}")
+
+    def set_fit_attributes(self):
+        """
+        Setzt die Instanzattribute basierend auf den Ergebnissen des Fit-Prozesses.
+
+        Diese Methode aktualisiert die Instanzattribute mit den Werten aus
+        `self.param_optimal_dict` und `self.metrics_dict`, die nach dem Fit-Prozess berechnet wurden.
+        """
+
+        # Aktualisieren der Parameter-Attribute, wenn sie vorhanden sind
+        if self.param_optimal_dict is not None:
+            self.initial_amplitude = self.param_optimal_dict.get("initial_amplitude")
+            self.damping_coeff = self.param_optimal_dict.get("damping_coeff")
+            self.angular_frequency = self.param_optimal_dict.get("angular_frequency")
+            self.phase_angle = self.param_optimal_dict.get("phase_angle")
+            self.y_shift = self.param_optimal_dict.get("y_shift")
+
+        # Aktualisieren der Metrik-Attribute, wenn sie vorhanden sind
+        if self.metrics_dict is not None:
+            self.mse = self.metrics_dict.get("mse")
+            self.mae = self.metrics_dict.get("mae")
+            self.rmse = self.metrics_dict.get("rmse")
+            self.r2 = self.metrics_dict.get("r2")

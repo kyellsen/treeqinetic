@@ -25,7 +25,7 @@ def zero_base_column(df: pd.DataFrame, column_name: str) -> pd.DataFrame:
 
 def remove_values_above_percentage(df, column_name, amplitude_2, percentage):
 # Schwellenwert berechnen
-    threshold = amplitude_2 * (percentage*2/100)
+    threshold = amplitude_2 * (percentage/100)*2
 
     # Entfernen der Werte, die größer als der Schwellenwert sind
     df.drop(df[df[column_name] > threshold].index, inplace=True)
