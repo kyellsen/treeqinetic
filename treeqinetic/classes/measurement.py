@@ -66,9 +66,9 @@ class Measurement(BaseClass):
                 except ValueError:
                     return s
 
-        def get_key_value(line: str) -> Optional[Tuple[str, Any]]:
+        def get_key_value(row: str) -> Optional[Tuple[str, Any]]:
             """Extrahiert Schlüssel-Wert-Paare aus einer Zeile, getrennt durch Tabs."""
-            key_value = line.strip().split('\t')
+            key_value = row.strip().split('\t')
 
             if not key_value:
                 return None

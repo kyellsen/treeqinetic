@@ -6,8 +6,8 @@ from typing import Tuple, List, Dict
 from ..analyse.fitting_functions import damped_osc
 
 
-def extract_peak_valley_info(peaks: List[Dict[str, float]], valleys: List[Dict[str, float]]) -> Tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def extract_peak_valley_info(peaks: List[Dict[str, float]], valleys: List[Dict[str, float]]) -> (
+        Tuple)[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Extracts time and value information from peaks and valleys.
 

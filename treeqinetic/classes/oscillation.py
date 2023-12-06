@@ -8,7 +8,7 @@ from .base_class import BaseClass
 
 from ..plotting.plot import plot_error_histogram
 from ..plotting import plot_oscillation
-from ..analyse.calcs_utils import calc_sample_rate, calc_amplitude, calc_min_max, convert_dict_to_list
+from kj_core.calc.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
     interpolate_points
 from ..analyse.fitting_functions import damped_osc, fit_damped_osc, calc_metrics
@@ -330,7 +330,7 @@ class Oscillation(BaseClass):
             logger.error(f"Error in get_df_fit: {e}")
 
     def calc_param_optimal(self, initial_param: Dict[str, float],
-                            param_bounds: Dict[str, Tuple[float, float]]) -> None:
+                           param_bounds: Dict[str, Tuple[float, float]]) -> None:
         """
         Calculates the optimal parameters for the model.
 
@@ -342,11 +342,11 @@ class Oscillation(BaseClass):
         - None
         """
         try:
-            initial_param_list = convert_dict_to_list(initial_param)
-            lower_bounds, upper_bounds = zip(*convert_dict_to_list(param_bounds))
+            initial_param_list = [initial_param[key] for key in initial_param]
+            lower_bounds, upper_bounds = zip(*[param_bounds[key] for key in param_bounds])
             param_bounds_list = (lower_bounds, upper_bounds)
             self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
-                                                 param_bounds=param_bounds_list)
+                                                param_bounds=param_bounds_list)
             param_labels = self.CONFIG.Oscillation.param_labels
             self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
         except Exception as e:
@@ -419,15 +419,15 @@ class Oscillation(BaseClass):
         try:
             fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name,
                                                 self.param_optimal_dict, self.param_optimal,
-                                                self.metrics_dict, metrics_warning=self.metric_warning, peaks=self.peaks, valleys=self.valleys)
+                                                self.metrics_dict, metrics_warning=self.metric_warning,
+                                                peaks=self.peaks, valleys=self.valleys)
 
             self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
                                         subdir=f"osc_fit_1{dir_add}")
             logger.debug(f"Plot for measurement: '{self}' successful.")
         except Exception as plot_error:
             logger.error(f"Error in plotting: {plot_error}")
-            
-            
+
     def plot_fit_errors(self, dir_add: Optional[str] = None) -> None:
         """
         Plots the fitting results and saves the plot.

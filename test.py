@@ -27,7 +27,7 @@ ptq_oscillations_ls = ptq_series.get_oscillations_list()
 for osc in ptq_oscillations_ls:
     osc.fit(plot=False, plot_error=False, dir_add="_df", clean_peaks=False, interpolate=True)
 
-all_normalized_errors = ptq_series.plot_osc_errors(plot_hist=True, hist_trim_percent=2, plot_qq=True)
+all_normalized_errors = ptq_series.plot_osc_errors(plot_qq=True,  plot_violin=True, plot_hist=True, hist_trim_percent=2)
 
 
 # param_labels = ptq.CONFIG.Oscillation.param_labels

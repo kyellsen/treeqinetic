@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -58,6 +59,39 @@ def plot_error_qq(errors: np.ndarray, title: str = "Q-Q Plot of Errors", show_pl
     ax.set_xlabel('Theoretical Quantiles')
     ax.set_ylabel('Ordered Values')
     ax.grid(True)
+
+    if show_plot:
+        plt.show()
+
+    return fig
+
+
+def plot_error_violin(errors_dict: dict, title: str = "Violin Plot of Errors", show_plot: bool = False) -> plt.Figure:
+    """
+    Creates a violin plot of errors for each key in the errors_dict.
+
+    Args:
+        errors_dict (dict): A dictionary where keys are categories (e.g., sensor names) and values are arrays of errors.
+        title (str): Title of the plot.
+        show_plot:
+
+    Returns:
+        plt.Figure: The created matplotlib figure.
+    """
+    # Vorbereiten der Daten für den Violin-Plot
+    data_for_plotting = []
+    for category, errors in errors_dict.items():
+        for error in errors:
+            data_for_plotting.append({'Category': category, 'Error': error})
+
+    df_for_plotting = pd.DataFrame(data_for_plotting)
+
+    # Erstellen des Violin-Plots
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.violinplot(x='Category', y='Error', data=df_for_plotting, ax=ax, palette=sns.color_palette("deep", len(errors_dict)), legend=False)
+    ax.set_title(title)
+    ax.set_xlabel('Category')
+    ax.set_ylabel('Error')
 
     if show_plot:
         plt.show()

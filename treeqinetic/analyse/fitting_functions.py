@@ -41,7 +41,7 @@ def fit_damped_osc(data: pd.DataFrame, sensor_name: str, initial_param: List[flo
     np.ndarray: Array of optimal parameters.
     """
     param_optimal, _ = curve_fit(damped_osc, data['Sec_Since_Start'], data[sensor_name], p0=initial_param,
-                                  bounds=param_bounds, maxfev=100000)
+                                 bounds=param_bounds, maxfev=100000)
 
     return param_optimal
 
@@ -65,6 +65,3 @@ def calc_metrics(data: pd.DataFrame, sensor_name: str, param_optimal: np.ndarray
     r2 = r2_score(data[sensor_name], fitted_values)
 
     return mse, mae, rmse, r2
-
-
-

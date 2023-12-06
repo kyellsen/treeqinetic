@@ -1,12 +1,12 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from typing import List, Optional, Tuple, Dict
+from typing import List
 
 from .base_class import BaseClass
 from .measurement import Measurement
 
-from ..plotting.plot import plot_error_histogram, plot_error_qq
+from ..plotting.plot import plot_error_histogram, plot_error_qq, plot_error_violin
 
 from kj_core import get_logger
 
@@ -149,14 +149,17 @@ class Series(BaseClass):
                                           for sensor_name in set(osc.sensor_name for osc in oscillations)}
         self.osc_errors_dict_all = {"all_fits": self.collect_and_normalize_errors(oscillations)}
 
-    def plot_osc_errors(self, plot_hist: bool = True, hist_trim_percent: float = None, plot_qq: bool = True):
+    def plot_osc_errors(self, plot_qq: bool = True, plot_violin: bool = True, hist_trim_percent: float = None,
+                        plot_hist: bool = True):
         """
         Plots the normalized errors for each sensor and combined for all sensors.
 
         Args:
+            plot_qq (bool): If True, plots a QQ plot of the normalized errors.
+            plot_violin
             plot_hist (bool): If True, plots a histogram of the normalized errors.
             hist_trim_percent (float): Percentage of data to trim from each end for the histogram.
-            plot_qq (bool): If True, plots a QQ plot of the normalized errors.
+
         """
 
         # Stellen Sie sicher, dass die Fehlerdaten verfügbar sind
@@ -165,13 +168,14 @@ class Series(BaseClass):
         # Plotting für alle Sensoren zusammen
         if plot_hist or plot_qq:
             self._plot_error_data(self.osc_errors_dict_all["all_fits"], "all_fits",
-                                  plot_hist, hist_trim_percent, plot_qq)
+                                  plot_qq, plot_violin, plot_hist, hist_trim_percent)
 
         # Plotting für jeden Sensor separat
         for sensor_name, errors in self.osc_errors_dict_by_sensor.items():
-            self._plot_error_data(errors, sensor_name, plot_hist, hist_trim_percent, plot_qq)
+            self._plot_error_data(errors, sensor_name, plot_qq, False, plot_hist, hist_trim_percent)
 
-    def _plot_error_data(self, errors, title_suffix, plot_hist, hist_trim_percent, plot_qq, sub_dir="series_osc_errors"):
+    def _plot_error_data(self, errors, title_suffix, plot_qq, plot_violin, plot_hist, hist_trim_percent,
+                         sub_dir="series_osc_errors"):
         """
         Helper function to plot error data.
 
@@ -202,3 +206,13 @@ class Series(BaseClass):
                 logger.debug(f"plot_error_qq for {title_suffix}: successful.")
             except Exception as plot_error:
                 logger.error(f"Error in plot_error_qq for {title_suffix}: {plot_error}")
+
+        if plot_violin:
+            try:
+                fig = plot_error_violin(self.osc_errors_dict_by_sensor,
+                                        title=f"Violin Plot of Normalized Errors for {title_suffix}")
+                self.PLOT_MANAGER.save_plot(fig, f"normalized_errors_violin_{title_suffix}",
+                                            subdir=sub_dir)
+                logger.debug(f"plot_error_violin for {title_suffix}: successful.")
+            except Exception as plot_error:
+                logger.error(f"Error in plot_error_violin for {title_suffix}: {plot_error}")
