@@ -27,9 +27,9 @@ class Config(CoreConfig):
         metrics_labels = ["mse", "mae", "rmse", "r2"]
 
         # Definiert die Anfangswerte für jeden Parameter
-        initial_param_values = [180, 0.35, 0.44, 0, 0]
+        initial_param_values = [170, 0.3, 0.44, 0, 0]
         # Definiert die Grenzwerte für jeden Parameter
-        bounds_values = [(130, 300), (0.1, 3), (0.1, 1), (0, 1), (-50, 50)]
+        bounds_values = [(130, 180), (0.1, 1.4), (0.3, 0.7), (-0.5, 1.8), (-50, 50)]
         # Definiere die Metrics Warnings
-        error = 500
-        metrics_warning_values = [(0, error), (0, np.sqrt(error) * 0.8), (0, np.sqrt(error)), (-10, 10)]
+        error = 1000
+        metrics_warning_values = [(0, error), (0, 20), (0, 30), (-10, 10)]

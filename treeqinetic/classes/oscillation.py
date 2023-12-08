@@ -11,7 +11,7 @@ from ..plotting import plot_oscillation
 from kj_core.calc.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
     interpolate_points
-from ..analyse.fitting_functions import damped_osc, fit_damped_osc, calc_metrics
+from ..analyse.fitting_functions import damped_osc, fit_damped_osc, fit_damped_osc_mae, calc_metrics
 
 from kj_core import get_logger
 
@@ -27,6 +27,8 @@ class Oscillation(BaseClass):
         self.sensor_name = sensor_name  # = Column Name
         self.start_index = start_index
         self.df_orig = df
+        self.df_orig_max = df[sensor_name].max()
+        self.df_orig_min = df[sensor_name].min()
 
         # Reset the index of the DataFrame and make sure we don't lose the original index
         self.df = df.reset_index(drop=True, inplace=False)  # inplace=False -> creates a copy of df
@@ -345,8 +347,9 @@ class Oscillation(BaseClass):
             initial_param_list = [initial_param[key] for key in initial_param]
             lower_bounds, upper_bounds = zip(*[param_bounds[key] for key in param_bounds])
             param_bounds_list = (lower_bounds, upper_bounds)
-            self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
-                                                param_bounds=param_bounds_list)
+            self.param_optimal = fit_damped_osc_mae(self.df_fit, self.sensor_name, initial_param=initial_param_list, param_bounds=param_bounds_list)
+            #self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
+                                                    #param_bounds=param_bounds_list)
             param_labels = self.CONFIG.Oscillation.param_labels
             self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
         except Exception as e:
