@@ -12,10 +12,10 @@ data_path = main_path / "020_Daten"  # Für alle Daten-Importe des Projektes gem
 working_directory = main_path / "030_Analysen" / analyse_name / "working_directory"  # Für alle Daten-Exporte des Projektes gemeinsam
 
 ptq_working_directory = working_directory / 'PTQ'
-ptq.setup(working_directory=ptq_working_directory, log_level="INFO")
+ptq.setup(working_directory=str(ptq_working_directory), log_level="INFO")
 
 ptq_data_path = data_path / 'PTQ/data_txt'
-ptq_series = ptq.classes.Series(name=analyse_name, path=ptq_data_path)
+ptq_series = ptq.classes.Series(name=analyse_name, path=str(ptq_data_path))
 
 elasto_names = ["Elasto(95)", "Elasto(98)", "Elasto(92)", "Elasto(90)"]
 

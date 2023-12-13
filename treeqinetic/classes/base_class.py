@@ -1,16 +1,19 @@
+from kj_core import get_logger
+from kj_core.classes.core_base_class import CoreBaseClass
+
 import treeqinetic
 
-from kj_core import get_logger
 logger = get_logger(__name__)
 
 
-class BaseClass:
+class BaseClass(CoreBaseClass):
+    """
+    Base class built upon CoreBaseClass, using specific managers from treemotion.
+    """
+
     def __init__(self):
-        managers_to_check = [treeqinetic.CONFIG, treeqinetic.PLOT_MANAGER]
+        # Es wird angenommen, dass treemotion.CONFIG, usw. bereits initialisiert wurden
+        # Initialisiere CoreBaseClass mit treemotion-Managern
+        super().__init__(config=treeqinetic.CONFIG,
+                         plot_manager=treeqinetic.PLOT_MANAGER)
 
-        if any(manager is None for manager in managers_to_check):
-            raise ValueError(f"The package has not been properly initialized. Please call the setup function first.")
-
-        else:
-            self.CONFIG = treeqinetic.CONFIG
-            self.PLOT_MANAGER = treeqinetic.PLOT_MANAGER
