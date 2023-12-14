@@ -1,19 +1,15 @@
 from kj_core import get_logger
-from kj_core.classes.core_base_class import CoreBaseClass
 
 import treeqinetic
 
 logger = get_logger(__name__)
 
 
-class BaseClass(CoreBaseClass):
+class BaseClass:
     """
     Base class built upon CoreBaseClass, using specific managers from treemotion.
     """
 
     def __init__(self):
-        # Es wird angenommen, dass treemotion.CONFIG, usw. bereits initialisiert wurden
-        # Initialisiere CoreBaseClass mit treemotion-Managern
-        super().__init__(config=treeqinetic.CONFIG,
-                         plot_manager=treeqinetic.PLOT_MANAGER)
-
+        self.CONFIG = treeqinetic.CONFIG
+        self.PLOT_MANAGER = treeqinetic.PLOT_MANAGER
