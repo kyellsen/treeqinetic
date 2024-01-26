@@ -8,10 +8,10 @@ from .base_class import BaseClass
 
 from ..plotting.plot import plot_error_histogram
 from ..plotting import plot_oscillation
-from kj_core.calc.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
+from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
     interpolate_points
-from ..analyse.fitting_functions import damped_osc, fit_damped_osc, fit_damped_osc_mae, calc_metrics
+from ..analyse.fitting_functions import damped_osc, fit_damped_osc_mae, calc_metrics
 
 from kj_core import get_logger
 
