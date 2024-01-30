@@ -1,6 +1,6 @@
 from .base_class import BaseClass
 
-from kj_core import get_logger
+from kj_logger import get_logger
 
 logger = get_logger(__name__)
 

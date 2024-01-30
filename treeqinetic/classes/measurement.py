@@ -9,7 +9,7 @@ from .oscillation import Oscillation
 from ..plotting import plot_measurement
 from ..analyse.select_oscillation import calculate_slope, find_oscillation_start, extract_oscillation
 
-from kj_core import get_logger
+from kj_logger import get_logger
 
 logger = get_logger(__name__)
 

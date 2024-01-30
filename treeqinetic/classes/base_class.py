@@ -1,4 +1,4 @@
-from kj_core import get_logger
+from kj_logger import get_logger
 import treeqinetic
 
 logger = get_logger(__name__)

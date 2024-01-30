@@ -13,7 +13,7 @@ from ..analyse.correct_oscillation import zero_base_column, remove_values_above_
     interpolate_points
 from ..analyse.fitting_functions import damped_osc, fit_damped_osc_mae, calc_metrics
 
-from kj_core import get_logger
+from kj_logger import get_logger
 
 logger = get_logger(__name__)
 
