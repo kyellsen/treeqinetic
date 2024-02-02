@@ -89,7 +89,7 @@ class Oscillation(BaseClass):
         self.calc_m_frequency()
 
     def __str__(self):
-        return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
+        return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.cms_id}, Sensor: {self.sensor_name}'"
 
     def calc_m_y_shift(self, window_size: int = 5, last_percent: float = 60) -> float:
         """
@@ -387,7 +387,7 @@ class Oscillation(BaseClass):
             if (lower_threshold is not None and metric_value < lower_threshold) or \
                     (upper_threshold is not None and metric_value > upper_threshold):
                 logger.warning(
-                    f"{self.measurement.id}_{self.sensor_name}: '{metric}' metric value {metric_value} "
+                    f"{self.measurement.cms_id}_{self.sensor_name}: '{metric}' metric value {metric_value} "
                     f"outside of threshold range {lower_threshold}-{upper_threshold}")
                 self.metric_warning = True
 
@@ -425,7 +425,7 @@ class Oscillation(BaseClass):
                                                 self.metrics_dict, metrics_warning=self.metric_warning,
                                                 peaks=self.peaks, valleys=self.valleys)
 
-            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
+            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.cms_id}_{self.sensor_name}_{self.measurement.file_name}",
                                         subdir=f"osc_fit_1{dir_add}")
             logger.debug(f"Plot for measurement: '{self}' successful.")
         except Exception as plot_error:
@@ -441,7 +441,7 @@ class Oscillation(BaseClass):
         try:
             fig = plot_error_histogram(self.errors, show_plot=False)
 
-            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
+            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.cms_id}_{self.sensor_name}_{self.measurement.file_name}",
                                         subdir=f"osc_fit_errors_1{dir_add}")
             logger.debug(f"Plot for measurement: '{self}' successful.")
         except Exception as e:

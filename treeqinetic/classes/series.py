@@ -74,7 +74,7 @@ class Series(BaseClass):
 
         for osc in oscillations:
             row = {
-                'id': osc.measurement.id,
+                'id': osc.measurement.cms_id,
                 'file_name': osc.measurement.file_name,
                 'sensor_name': osc.sensor_name,
                 'sample_rate': osc.sample_rate,
