@@ -16,7 +16,7 @@ def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float,
     damping_coeff (float): Damping coefficient.
     angular_frequency (float): Angular frequency of the oscillation.
     phase_angle (float): Phase angle.
-    y_shift (float): Vertical shift of the oscillation.
+    y_shift (float): Vertical get_shifted_trunk_data of the oscillation.
 
     Returns:
     np.ndarray: Calculated values of the damped oscillation function for each time value.
