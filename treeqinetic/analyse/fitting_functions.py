@@ -7,7 +7,7 @@ from scipy.optimize import minimize
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
-def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float, angular_frequency: float,
+def damped_osc_old(time: np.ndarray, initial_amplitude: float, damping_coeff: float, angular_frequency: float,
                phase_angle: float, y_shift: float) -> np.ndarray:
     """
     Damped oscillation function.
@@ -25,6 +25,28 @@ def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float,
     """
     function = initial_amplitude * np.exp(-damping_coeff * time) * np.cos(
         2 * np.pi * angular_frequency * time + phase_angle) + y_shift
+    return function
+
+
+def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float, angular_frequency: float,
+               phase_angle: float, y_shift: float, x_shift: float) -> np.ndarray:
+    """
+    Damped oscillation function with optional horizontal shift.
+
+    Args:
+    time (np.ndarray): Array of time values.
+    initial_amplitude (float): Initial amplitude of the oscillation.
+    damping_coeff (float): Damping coefficient.
+    angular_frequency (float): Angular frequency of the oscillation.
+    phase_angle (float): Phase angle.
+    y_shift (float): Vertical shift of the oscillation.
+    x_shift (float): Horizontal shift of the oscillation.
+
+    Returns:
+    np.ndarray: Calculated values of the damped oscillation function for each time value.
+    """
+    function = initial_amplitude * np.exp(-damping_coeff * (time - x_shift)) * np.cos(
+        2 * np.pi * angular_frequency * (time - x_shift) + phase_angle) + y_shift
     return function
 
 
@@ -47,6 +69,7 @@ def fit_damped_osc(data: pd.DataFrame, sensor_name: str, initial_param: List[flo
 
     return param_optimal
 
+
 def fit_damped_osc_mae(data: pd.DataFrame, sensor_name: str, initial_param: List[float],
                        param_bounds: Tuple[List[float], List[float]]) -> np.ndarray:
     """
@@ -64,29 +87,9 @@ def fit_damped_osc_mae(data: pd.DataFrame, sensor_name: str, initial_param: List
     # Konvertierung der Grenzen in das erforderliche Format für scipy.optimize.minimize
     bounds = [(low, high) for low, high in zip(*param_bounds)]
 
-    result = minimize(mae_loss, np.array(initial_param), args=(data['Sec_Since_Start'], data[sensor_name]), bounds=bounds)
+    result = minimize(mae_loss, np.array(initial_param), args=(data['Sec_Since_Start'], data[sensor_name]),
+                      bounds=bounds)
     return result.x
-
-
-def calc_metrics(data: pd.DataFrame, sensor_name: str, param_optimal: np.ndarray) -> Tuple:
-    """
-    Calculates various metrics for the fitted data.
-
-    Args:
-    data (pd.DataFrame): DataFrame containing the original data.
-    sensor_name (str): Column name of the sensor data.
-    optimal_param (np.ndarray): Optimal parameters from the curve fitting.
-
-    Returns:
-    Tuple: Calculated metrics (MSE, MAE, RMSE, R²) for the fitted data.
-    """
-    fitted_values = damped_osc(data['Sec_Since_Start'], *param_optimal)
-    mse = mean_squared_error(data[sensor_name], fitted_values)
-    mae = mean_absolute_error(data[sensor_name], fitted_values)
-    rmse = np.sqrt(mse)
-    r2 = r2_score(data[sensor_name], fitted_values)
-
-    return mse, mae, rmse, r2
 
 
 def mae_loss(params, time, sensor_data):
@@ -94,7 +97,7 @@ def mae_loss(params, time, sensor_data):
     Berechnet den mittleren absoluten Fehler zwischen den Daten und dem Modell.
 
     Args:
-        params (array): Modellparameter [initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift].
+        params (array): Modellparameter [initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift, x_shift].
         time (np.ndarray): Zeitwerte.
         sensor_data (np.ndarray): Sensorwerte.
 
@@ -102,12 +105,10 @@ def mae_loss(params, time, sensor_data):
         float: MAE zwischen den Modellvorhersagen und den tatsächlichen Sensorwerten.
     """
     # Stellen Sie sicher, dass params als separate Argumente übergeben werden
-    initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift = params
+    initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift, x_shift = params
     # Modellvorhersagen berechnen
-    predicted = damped_osc(time, initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift)
+    predicted = damped_osc(time, initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift, x_shift)
     # Verwendung von sklearn's mean_absolute_error zur Berechnung des MAE
     mae = mean_absolute_error(sensor_data, predicted)
     return mae
-
-
 

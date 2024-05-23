@@ -21,13 +21,29 @@ class Config(CoreConfig):
         super().__init__(f"{working_directory}/{self.package_name_short}")
 
     class Oscillation:
-        param_labels = ["initial_amplitude", "damping_coeff", "angular_frequency", "phase_angle", "y_shift"]
-        metrics_labels = ["mse", "mae", "rmse", "r2"]
+        initial_params = {
+            "initial_amplitude": 170,
+            "damping_coeff": 0.3,
+            "angular_frequency": 0.44,
+            "phase_angle": 0,
+            "y_shift": 0,
+            "x_shift": 0
+        }
 
-        # Definiert die Anfangswerte für jeden Parameter
-        initial_param_values = [170, 0.3, 0.44, 0, 0]
-        # Definiert die Grenzwerte für jeden Parameter
-        bounds_values = [(130, 180), (0.1, 1.4), (0.3, 0.7), (-0.5, 1.8), (-50, 50)]
-        # Definiere die Metrics Warnings
+        param_bounds = {
+            "initial_amplitude": (130, 180),
+            "damping_coeff": (0.1, 1.4),
+            "angular_frequency": (0.3, 0.7),
+            "phase_angle": (-0.5, 1.8),
+            "y_shift": (-50, 50),
+            "x_shift": (-2, 2)
+        }
+
+        metrics_warning = {
+            "mse": (0, 1000),
+            "mae": (0, 20),
+            "rmse": (0, 30),
+            "r2": (-10, 10)
+        }
+
         error = 1000
-        metrics_warning_values = [(0, error), (0, 20), (0, 30), (-10, 10)]

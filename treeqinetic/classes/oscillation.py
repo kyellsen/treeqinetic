@@ -12,7 +12,7 @@ from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_
 from kj_core.classes.similarity_metrics import SimilarityMetrics
 from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
     interpolate_points
-from ..analyse.fitting_functions import damped_osc, fit_damped_osc_mae, calc_metrics
+from ..analyse.fitting_functions import damped_osc, fit_damped_osc_mae
 
 from kj_logger import get_logger
 
@@ -62,21 +62,10 @@ class Oscillation(BaseClass):
         self.param_optimal = None
         self.param_optimal_dict = None
 
-        self.initial_amplitude = None
-        self.damping_coeff = None
-        self.angular_frequency = None
-        self.phase_angle = None
-        self.y_shift = None
-
         # Quality metrics from fitting
         self.metrics = None
+        self.metrics_dict = None
         self.metric_warning = False
-
-        # # TODO: Use Class SimilarityMetrics instate
-        # self.mse = None
-        # self.mae = None
-        # self.rmse = None
-        # self.r2 = None
 
         self.errors = None
 
@@ -238,32 +227,10 @@ class Oscillation(BaseClass):
             logger.critical(f"Unexpected error occurred during frequency calculation: {e}", exc_info=True)
             return None
 
-    def get_initial_param(self):
-        initial_param_labels = self.CONFIG.Oscillation.param_labels
-        initial_param_values = self.CONFIG.Oscillation.initial_param_values
-
-        initial_param_dict = {label: value for label, value in zip(initial_param_labels, initial_param_values)}
-
-        return initial_param_dict
-
-    def get_param_bounds(self):
-        initial_param_labels = self.CONFIG.Oscillation.param_labels
-        bounds_values = self.CONFIG.Oscillation.bounds_values
-        param_bounds_dict = {label: bounds for label, bounds in zip(initial_param_labels, bounds_values)}
-
-        return param_bounds_dict
-
-    def get_metrics_warning(self):
-        metrics_labels = self.CONFIG.Oscillation.metrics_labels
-        metrics_warning_values = self.CONFIG.Oscillation.metrics_warning_values
-        metrics_warning_dict = {label: value for label, value in zip(metrics_labels, metrics_warning_values)}
-
-        return metrics_warning_dict
-
     def fit(self, initial_param: Dict[str, float] = None, param_bounds: Dict[str, Tuple] = None,
             metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]] = None,
-            plot: bool = True, plot_error: bool = False, dir_add: str = None, clean_peaks=True, interpolate=True,
-            remove_values_above=True) -> None:
+            plot: bool = True, plot_error: bool = False, dir_add: str = None, clean_peaks=False, interpolate=True,
+            remove_values_above: int = None) -> None:
         """
         Fits the model to the data using the provided initial parameters and parameter bounds.
         It calculates optimal parameters, metrics, and optionally plots the results.
@@ -279,17 +246,21 @@ class Oscillation(BaseClass):
         - param_bounds: A dictionary of tuples representing the lower and upper bounds for each parameter.
         - metrics_warning: An optional dictionary specifying warning thresholds for each metric.
         - plot: A boolean flag to indicate whether to generate a plot.
+        - plot_error: A boolean flag to indicate whether to generate a error plot.
         - dir_add
+        - clean_peaks
+        - interpolate
+        - remove_values_above: default None or 200 (percent)
 
         Returns:
         - None
         """
         if initial_param is None:
-            initial_param = self.get_initial_param()
+            initial_param = self.CONFIG.Oscillation.initial_params
         if param_bounds is None:
-            param_bounds = self.get_param_bounds()
+            param_bounds = self.CONFIG.Oscillation.param_bounds
         if metrics_warning is None:
-            metrics_warning = self.get_metrics_warning()
+            metrics_warning = self.CONFIG.Oscillation.metrics_warning
 
         try:
             self.get_df_fit(clean_peaks, interpolate, remove_values_above)
@@ -297,7 +268,6 @@ class Oscillation(BaseClass):
             self.calc_metrics(metrics_warning)
             self.calc_errors()
 
-            self.set_fit_attributes()
             logger.info(f"fit for measurement: '{self}' successful.")
 
             if plot:
@@ -308,7 +278,7 @@ class Oscillation(BaseClass):
         except Exception as e:
             logger.critical(f"Error in fit method: {e}", exc_info=True)
 
-    def get_df_fit(self, clean_peaks, interpolate, remove_values_above) -> None:
+    def get_df_fit(self, clean_peaks: bool, interpolate: bool, remove_values_above: int) -> None:
         """
         Prepares the dataframe for fitting by cleaning and interpolating data.
 
@@ -328,7 +298,8 @@ class Oscillation(BaseClass):
             if interpolate:
                 df_fit = interpolate_points(df_fit, self.sensor_name, 50)
             if remove_values_above:
-                df_fit = remove_values_above_percentage(df_fit, self.sensor_name, self.m_amplitude_2, 200)
+                df_fit = remove_values_above_percentage(df_fit, self.sensor_name, self.m_amplitude_2,
+                                                        remove_values_above)
             self.df_fit = df_fit
         except Exception as e:
             logger.error(f"Error in get_df_fit: {e}")
@@ -349,9 +320,10 @@ class Oscillation(BaseClass):
             initial_param_list = [initial_param[key] for key in initial_param]
             lower_bounds, upper_bounds = zip(*[param_bounds[key] for key in param_bounds])
             param_bounds_list = (lower_bounds, upper_bounds)
-            self.param_optimal = fit_damped_osc_mae(self.df_fit, self.sensor_name, initial_param=initial_param_list, param_bounds=param_bounds_list)
-            #self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
-                                                    #param_bounds=param_bounds_list)
+            self.param_optimal = fit_damped_osc_mae(self.df_fit, self.sensor_name, initial_param=initial_param_list,
+                                                    param_bounds=param_bounds_list)
+            # self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
+            # param_bounds=param_bounds_list)
             param_labels = self.CONFIG.Oscillation.param_labels
             self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
         except Exception as e:
@@ -420,7 +392,7 @@ class Oscillation(BaseClass):
         Parameters:
         - dir_add: Optional sub-directory name for saving the plot.
         """
-        try:         # TODO: Use Class SimilarityMetrics instate
+        try:
             fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name,
                                                 self.param_optimal_dict, self.param_optimal,
                                                 self.metrics_dict, metrics_warning=self.metric_warning,
@@ -447,26 +419,3 @@ class Oscillation(BaseClass):
             logger.debug(f"Plot for measurement: '{self}' successful.")
         except Exception as e:
             logger.error(f"Error in plotting: {e}")
-
-    def set_fit_attributes(self):
-        """
-        Setzt die Instanzattribute basierend auf den Ergebnissen des Fit-Prozesses.
-
-        Diese Methode aktualisiert die Instanzattribute mit den Werten aus
-        `self.param_optimal_dict` und `self.metrics_dict`, die nach dem Fit-Prozess berechnet wurden.
-        """
-
-        # Aktualisieren der Parameter-Attribute, wenn sie vorhanden sind
-        if self.param_optimal_dict is not None:
-            self.initial_amplitude = self.param_optimal_dict.get("initial_amplitude")
-            self.damping_coeff = self.param_optimal_dict.get("damping_coeff")
-            self.angular_frequency = self.param_optimal_dict.get("angular_frequency")
-            self.phase_angle = self.param_optimal_dict.get("phase_angle")
-            self.y_shift = self.param_optimal_dict.get("y_shift")
-        # TODO: Use Class SimilarityMetrics instate
-        # Aktualisieren der Metrik-Attribute, wenn sie vorhanden sind
-        if self.metrics_dict is not None:
-            self.mse = self.metrics_dict.get("mse")
-            self.mae = self.metrics_dict.get("mae")
-            self.rmse = self.metrics_dict.get("rmse")
-            self.r2 = self.metrics_dict.get("r2")
