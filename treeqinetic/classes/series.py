@@ -52,10 +52,35 @@ class Series(BaseClass):
         for measurement in self.measurements:
             measurement.plot_multi_sensors(sensor_names, time_start, time_end)
 
-    def get_oscillations(self, sensor_names: list):
+    def get_oscillations(self, sensor_names: List[str], **kwargs):
+        """
+        Meta-function to select oscillation data for multiple measurements.
+
+        This function iterates over all measurements and applies the select_oscillations method to each instance of measurement.
+
+        Parameters:
+        ----------
+        sensor_names : List[str]
+            A list of sensor names for which the oscillation data needs to be identified.
+        **kwargs : dict, optional
+            Additional keyword arguments to pass to the select_oscillations function. These can include:
+
+            - min_time_default: float
+                The minimum time period to be considered for identifying oscillations.
+            - min_value: float
+                The minimum value threshold for sensor data to be considered valid.
+            - threshold_slope: float
+                The slope threshold to determine the start of an oscillation.
+            - duration: float
+                The duration for which the oscillation data is to be extracted.
+
+        Returns:
+        -------
+        None
+        """
         for measurement in self.measurements:
             logger.info(f"\n Select Oscillations for {measurement}")
-            measurement.select_oscillations(sensor_names)
+            measurement.select_oscillations(sensor_names, **kwargs)
 
     def plot_oscillations_for_measurements(self, sensor_names: list, combined: bool = False):
         for measurement in self.measurements:
@@ -74,7 +99,7 @@ class Series(BaseClass):
 
         for osc in oscillations:
             row = {
-                'id': osc.measurement.cms_id,
+                'id': osc.measurement.id,
                 'file_name': osc.measurement.file_name,
                 'sensor_name': osc.sensor_name,
                 'sample_rate': osc.sample_rate,

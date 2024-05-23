@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 from scipy.optimize import curve_fit
+
+from scipy.optimize import minimize
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
@@ -45,6 +47,26 @@ def fit_damped_osc(data: pd.DataFrame, sensor_name: str, initial_param: List[flo
 
     return param_optimal
 
+def fit_damped_osc_mae(data: pd.DataFrame, sensor_name: str, initial_param: List[float],
+                       param_bounds: Tuple[List[float], List[float]]) -> np.ndarray:
+    """
+    Passt eine gedämpfte Schwingungsfunktion an die Daten an, wobei der MAE als Qualitätskriterium verwendet wird.
+
+    Args:
+        data (pd.DataFrame): DataFrame mit den zu fittenden Daten.
+        sensor_name (str): Spaltenname der Sensordaten.
+        initial_param (List[float]): Liste der Anfangsschätzungen für die Parameter.
+        param_bounds (Tuple[List[float], List[float]]): Tuple mit den unteren und oberen Grenzen für jeden Parameter.
+
+    Returns:
+        np.ndarray: Optimierte Parameter.
+    """
+    # Konvertierung der Grenzen in das erforderliche Format für scipy.optimize.minimize
+    bounds = [(low, high) for low, high in zip(*param_bounds)]
+
+    result = minimize(mae_loss, np.array(initial_param), args=(data['Sec_Since_Start'], data[sensor_name]), bounds=bounds)
+    return result.x
+
 
 def calc_metrics(data: pd.DataFrame, sensor_name: str, param_optimal: np.ndarray) -> Tuple:
     """
@@ -67,16 +89,12 @@ def calc_metrics(data: pd.DataFrame, sensor_name: str, param_optimal: np.ndarray
     return mse, mae, rmse, r2
 
 
-from scipy.optimize import minimize
-
-from scipy.optimize import minimize
-
 def mae_loss(params, time, sensor_data):
     """
     Berechnet den mittleren absoluten Fehler zwischen den Daten und dem Modell.
 
     Args:
-        params (array): Modellparameter.
+        params (array): Modellparameter [initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift].
         time (np.ndarray): Zeitwerte.
         sensor_data (np.ndarray): Sensorwerte.
 
@@ -85,26 +103,11 @@ def mae_loss(params, time, sensor_data):
     """
     # Stellen Sie sicher, dass params als separate Argumente übergeben werden
     initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift = params
+    # Modellvorhersagen berechnen
     predicted = damped_osc(time, initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift)
-    mae = np.mean(np.abs(sensor_data - predicted))
+    # Verwendung von sklearn's mean_absolute_error zur Berechnung des MAE
+    mae = mean_absolute_error(sensor_data, predicted)
     return mae
 
-def fit_damped_osc_mae(data: pd.DataFrame, sensor_name: str, initial_param: List[float],
-                       param_bounds: Tuple[List[float], List[float]]) -> np.ndarray:
-    """
-    Passt eine gedämpfte Schwingungsfunktion an die Daten an, wobei der MAE als Qualitätskriterium verwendet wird.
 
-    Args:
-        data (pd.DataFrame): DataFrame mit den zu fittenden Daten.
-        sensor_name (str): Spaltenname der Sensordaten.
-        initial_param (List[float]): Liste der Anfangsschätzungen für die Parameter.
-        param_bounds (Tuple[List[float], List[float]]): Tuple mit den unteren und oberen Grenzen für jeden Parameter.
 
-    Returns:
-        np.ndarray: Optimierte Parameter.
-    """
-    # Konvertierung der Grenzen in das erforderliche Format für scipy.optimize.minimize
-    bounds = [(low, high) for low, high in zip(*param_bounds)]
-
-    result = minimize(mae_loss, np.array(initial_param), args=(data['Sec_Since_Start'], data[sensor_name]), bounds=bounds)
-    return result.x

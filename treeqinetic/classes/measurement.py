@@ -167,17 +167,38 @@ class Measurement(BaseClass):
 
     def select_oscillations(self, sensor_names: List[str], min_time_default: float = 60, min_value: float = 50,
                             threshold_slope: float = -25, duration: float = 17.5):
-        """Identify and store oscillation data for the given sensor names."""
+        """
+        Identify and store oscillation data for the given sensor names.
+
+        This function processes sensor data to identify oscillations based on specified criteria and stores
+        the results for each sensor in an Oscillation instance.
+
+        Parameters:
+        ----------
+        sensor_names : List[str]
+            A list of sensor names for which the oscillation data needs to be identified.
+        min_time_default : float, optional
+            The minimum time period after the measurement start to begin searching for oscillations, default is 60 seconds.
+        min_value : float, optional
+            The minimum value threshold for sensor data to be considered valid, default is 50.
+        threshold_slope : float, optional
+            The slope threshold to determine the start of an oscillation (e.g., sudden drop), default is -25.
+        duration : float, optional
+            The duration for which the oscillation data is to be extracted, default is 20 seconds.
+
+        Returns:
+        -------
+        None
+        """
         df = self.data
 
-        # Entfernen von NaN-Werten, sortieren nach der Zeitspalte und indexreset
+        # Remove NaN values, sort by the time column, and reset the index
         df.dropna(subset=sensor_names, inplace=True)
         df.sort_values(by=['Sec_Since_Start'], inplace=True)
         df.reset_index(drop=True, inplace=True)
 
         for sensor_name in sensor_names:
-
-            # Calculate slope
+            # Calculate the slope for the given sensor
             calculate_slope(df, sensor_name)
 
             # Find the start index of the oscillation period
@@ -232,27 +253,6 @@ class Measurement(BaseClass):
         else:
             self._plot_single_oscillations(sensor_names, subdir)
 
-    def _plot_combined_oscillations(self, sensor_names: List[str], subdir: str) -> None:
-        """
-        Helper method to plot combined oscillations for given sensor names.
-
-        Args:
-            sensor_names (List[str]): List of sensor names.
-            subdir (str): Subdirectory for saving the plot.
-        """
-        try:
-            oscillations_data_orig = {sensor_name: self.oscillations[sensor_name].df_orig
-                                      for sensor_name in sensor_names
-                                      if sensor_name in self.oscillations}
-            fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_names,
-                                                            oscillations_data_orig=oscillations_data_orig)
-
-            filename = f"{self.id}_{self.file_name_text}"
-            self.PLOT_MANAGER.save_plot(fig, filename=filename, subdir=subdir)
-            logger.info(f"Combined plot_select_oscillation for measurement: '{self}' successful.")
-        except Exception as e:
-            logger.error(f"Failed to create combined plot_select_oscillation: '{self}'. Error: {e}")
-
     def _plot_single_oscillations(self, sensor_names: List[str], subdir: str) -> None:
         """
         Helper method to plot individual oscillations for each sensor name.
@@ -275,4 +275,27 @@ class Measurement(BaseClass):
                     logger.error(f"Failed to plot_select_oscillation: '{self}' for {sensor_name}. Error: {e}")
             else:
                 logger.warning(f"No oscillation data found for sensor: {sensor_name}")
+
+    def _plot_combined_oscillations(self, sensor_names: List[str], subdir: str) -> None:
+        """
+        Helper method to plot combined oscillations for given sensor names.
+
+        Args:
+            sensor_names (List[str]): List of sensor names.
+            subdir (str): Subdirectory for saving the plot.
+        """
+        try:
+            oscillations_data_orig = {sensor_name: self.oscillations[sensor_name].df_orig
+                                      for sensor_name in sensor_names
+                                      if sensor_name in self.oscillations}
+            fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_names,
+                                                            oscillations_data_orig=oscillations_data_orig)
+
+            filename = f"{self.id}_{self.file_name_text}"
+            self.PLOT_MANAGER.save_plot(fig, filename=filename, subdir=subdir)
+            logger.info(f"Combined plot_select_oscillation for measurement: '{self}' successful.")
+        except Exception as e:
+            logger.error(f"Failed to create combined plot_select_oscillation: '{self}'. Error: {e}")
+
+
 

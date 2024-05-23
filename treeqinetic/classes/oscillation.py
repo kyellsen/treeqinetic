@@ -9,6 +9,7 @@ from .base_class import BaseClass
 from ..plotting.plot import plot_error_histogram
 from ..plotting import plot_oscillation
 from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
+from kj_core.classes.similarity_metrics import SimilarityMetrics
 from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
     interpolate_points
 from ..analyse.fitting_functions import damped_osc, fit_damped_osc_mae, calc_metrics
@@ -68,13 +69,14 @@ class Oscillation(BaseClass):
         self.y_shift = None
 
         # Quality metrics from fitting
-        self.metrics_dict = None
+        self.metrics = None
         self.metric_warning = False
 
-        self.mse = None
-        self.mae = None
-        self.rmse = None
-        self.r2 = None
+        # # TODO: Use Class SimilarityMetrics instate
+        # self.mse = None
+        # self.mae = None
+        # self.rmse = None
+        # self.r2 = None
 
         self.errors = None
 
@@ -89,7 +91,7 @@ class Oscillation(BaseClass):
         self.calc_m_frequency()
 
     def __str__(self):
-        return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.cms_id}, Sensor: {self.sensor_name}'"
+        return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
 
     def calc_m_y_shift(self, window_size: int = 5, last_percent: float = 60) -> float:
         """
@@ -355,8 +357,8 @@ class Oscillation(BaseClass):
         except Exception as e:
             logger.error(f"Error in calc_param_optimal: {e}")
 
-    def calc_metrics(self, metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]]) -> \
-            Dict[str, float]:
+    def calc_metrics(self, metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]]) -> Dict[
+        str, float]:
         """
         Calculates and evaluates metrics based on the fitted model parameters.
 
@@ -370,29 +372,28 @@ class Oscillation(BaseClass):
                              a warning is logged.
 
         Returns:
-            A dictionary of calculated metrics.
+            Dict[str, float]: A dictionary of calculated metrics.
         """
-
         try:
-            metrics_values = calc_metrics(self.df_fit, self.sensor_name, self.param_optimal)
+            # Generate fitted values using the optimal parameters
+            fitted_values = damped_osc(self.df_fit['Sec_Since_Start'], *self.param_optimal)
+
+            # Calculate similarity metrics between the original and fitted data
+            self.metrics = SimilarityMetrics.calc(self.df_fit[self.sensor_name], pd.Series(fitted_values))
+
+            # Check if any metrics exceed the provided warning thresholds
+            warnings = self.metrics.check_thresholds(metrics_warning)
+            for warning in warnings:
+                logger.warning(f"{self.measurement.id}_{self.sensor_name}: {warning}")
+            self.metric_warning = bool(warnings)
+
+            # Convert metrics to a dictionary and return
+            self.metrics_dict = self.metrics.to_dict()
+            return self.metrics_dict
+
         except Exception as e:
             logger.error(f"Error in calculating metrics: {e}", exc_info=True)
             return {}
-
-        metrics_labels = self.CONFIG.Oscillation.metrics_labels
-        metrics_dict = {label: value for label, value in zip(metrics_labels, metrics_values)}
-
-        for metric, (lower_threshold, upper_threshold) in metrics_warning.items():
-            metric_value = metrics_dict.get(metric, 0)
-            if (lower_threshold is not None and metric_value < lower_threshold) or \
-                    (upper_threshold is not None and metric_value > upper_threshold):
-                logger.warning(
-                    f"{self.measurement.cms_id}_{self.sensor_name}: '{metric}' metric value {metric_value} "
-                    f"outside of threshold range {lower_threshold}-{upper_threshold}")
-                self.metric_warning = True
-
-        self.metrics_dict = metrics_dict
-        return metrics_dict
 
     # Funktion zur Berechnung der Fehler
     def calc_errors(self) -> np.ndarray:
@@ -419,13 +420,13 @@ class Oscillation(BaseClass):
         Parameters:
         - dir_add: Optional sub-directory name for saving the plot.
         """
-        try:
+        try:         # TODO: Use Class SimilarityMetrics instate
             fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name,
                                                 self.param_optimal_dict, self.param_optimal,
                                                 self.metrics_dict, metrics_warning=self.metric_warning,
                                                 peaks=self.peaks, valleys=self.valleys)
 
-            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.cms_id}_{self.sensor_name}_{self.measurement.file_name}",
+            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
                                         subdir=f"osc_fit_1{dir_add}")
             logger.debug(f"Plot for measurement: '{self}' successful.")
         except Exception as plot_error:
@@ -441,7 +442,7 @@ class Oscillation(BaseClass):
         try:
             fig = plot_error_histogram(self.errors, show_plot=False)
 
-            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.cms_id}_{self.sensor_name}_{self.measurement.file_name}",
+            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
                                         subdir=f"osc_fit_errors_1{dir_add}")
             logger.debug(f"Plot for measurement: '{self}' successful.")
         except Exception as e:
@@ -462,7 +463,7 @@ class Oscillation(BaseClass):
             self.angular_frequency = self.param_optimal_dict.get("angular_frequency")
             self.phase_angle = self.param_optimal_dict.get("phase_angle")
             self.y_shift = self.param_optimal_dict.get("y_shift")
-
+        # TODO: Use Class SimilarityMetrics instate
         # Aktualisieren der Metrik-Attribute, wenn sie vorhanden sind
         if self.metrics_dict is not None:
             self.mse = self.metrics_dict.get("mse")
