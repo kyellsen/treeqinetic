@@ -79,7 +79,7 @@ def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, 
 
     # Anzeige von "Warning" in rot und fett, falls metrics_warning True ist
     if metrics_warning:
-        plt.annotate("Metrics Warning", xy=(0.95, 0.5), xycoords='axes fraction', fontsize=20,
+        plt.annotate("Metrics Warning", xy=(0.5, 0.25), xycoords='axes fraction', fontsize=25,
                      color='red', fontweight='bold', verticalalignment='top', horizontalalignment='right')
 
     plt.legend(loc="lower right")

@@ -103,26 +103,25 @@ class Series(BaseClass):
                 'file_name': osc.measurement.file_name,
                 'sensor_name': osc.sensor_name,
                 'sample_rate': osc.sample_rate,
-                'm_y_shift': osc.m_y_shift,
                 'max_value': osc.max_value,
                 'min_value': osc.min_value,
                 'm_amplitude': osc.m_amplitude,
                 'm_amplitude_2': osc.m_amplitude_2,
                 'm_frequency': osc.m_frequency,
-                'initial_amplitude': osc.initial_amplitude,
-                'damping_coeff': osc.damping_coeff,
-                'angular_frequency': osc.angular_frequency,
-                'phase_angle': osc.phase_angle,
-                'y_shift': osc.y_shift,
                 'metrics_warning': osc.metric_warning,
-                'mse': osc.mse,
-                'mae': osc.mae,
-                'rmse': osc.rmse,
-                'r2': osc.r2,
             }
-            data.append(row)
-        df = pd.DataFrame(data)
 
+            # Werte aus metrics_dict hinzufügen
+            if osc.metrics_dict:
+                row.update(osc.metrics_dict)
+
+            # Werte aus param_optimal_dict hinzufügen
+            if osc.param_optimal_dict:
+                row.update(osc.param_optimal_dict)
+
+            data.append(row)
+
+        df = pd.DataFrame(data)
         return df
 
     @staticmethod

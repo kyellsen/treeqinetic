@@ -39,35 +39,6 @@ def remove_values_above_percentage(df, column_name, amplitude_2, percentage):
     return df
 
 
-def clean_peaks_and_valleys(df, column_name, peaks, valleys):
-    # Kombinieren und Sortieren der Peaks und Valleys
-    combined = sorted(peaks + valleys, key=lambda x: x['index'])
-
-    for i in range(len(combined) - 1):
-        start_idx = combined[i]['index']
-        end_idx = combined[i + 1]['index']
-        start_value = df.iloc[start_idx][column_name]
-        end_value = df.iloc[end_idx][column_name]
-
-        # Bestimmen der Richtung: Anstieg oder Abfall
-        is_increasing = end_value > start_value
-
-        # Überprüfen und Entfernen der nicht kontinuierlichen Werte
-        last_valid_value = start_value
-        for idx in range(start_idx + 1, end_idx):
-            current_value = df.iloc[idx][column_name]
-            if (is_increasing and current_value < last_valid_value) or (
-                    not is_increasing and current_value > last_valid_value):
-                df.drop(idx, inplace=True)
-            else:
-                last_valid_value = current_value
-
-    # Index des neuen DataFrames neu ordnen
-    df.reset_index(drop=True, inplace=True)
-
-    return df
-
-
 def interpolate_points(df, column_name, sample_rate):
     # Erstellung des PchipInterpolators
     interpolator = PchipInterpolator(df['Sec_Since_Start'], df[column_name])

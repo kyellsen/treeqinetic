@@ -1,6 +1,7 @@
 from typing import Optional
 
 from kj_core.core_config import CoreConfig
+import numpy as np
 
 
 class Config(CoreConfig):
@@ -21,7 +22,9 @@ class Config(CoreConfig):
         super().__init__(f"{working_directory}/{self.package_name_short}")
 
     class Oscillation:
-        initial_params = {
+        param_labels = ["initial_amplitude", "damping_coeff", "angular_frequency", "phase_angle", "y_shift", "x_shift"]
+
+        initial_param = {
             "initial_amplitude": 170,
             "damping_coeff": 0.3,
             "angular_frequency": 0.44,
@@ -31,19 +34,21 @@ class Config(CoreConfig):
         }
 
         param_bounds = {
-            "initial_amplitude": (130, 180),
-            "damping_coeff": (0.1, 1.4),
-            "angular_frequency": (0.3, 0.7),
-            "phase_angle": (-0.5, 1.8),
+            "initial_amplitude": (100, 250),
+            "damping_coeff": (0.1, 1),
+            "angular_frequency": (0.35, 0.58),
+            "phase_angle": (-0.2, 0.2),
             "y_shift": (-50, 50),
-            "x_shift": (-2, 2)
+            "x_shift": (-0.25, 0.25),
         }
 
         metrics_warning = {
-            "mse": (0, 1000),
-            "mae": (0, 20),
-            "rmse": (0, 30),
-            "r2": (-10, 10)
+            "pearson_r": (0.50, 1),
+            "p_value": (-np.inf, np.inf),
+            "r2": (-np.inf, np.inf),
+            "mse": (0, 2000),
+            "rmse": (0, 50),
+            "mae": (0, 20)
         }
 
         error = 1000

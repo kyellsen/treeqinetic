@@ -4,29 +4,7 @@ from typing import Tuple, List
 from scipy.optimize import curve_fit
 
 from scipy.optimize import minimize
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-
-
-def damped_osc_old(time: np.ndarray, initial_amplitude: float, damping_coeff: float, angular_frequency: float,
-               phase_angle: float, y_shift: float) -> np.ndarray:
-    """
-    Damped oscillation function.
-
-    Args:
-    time (np.ndarray): Array of time values.
-    initial_amplitude (float): Initial amplitude of the oscillation.
-    damping_coeff (float): Damping coefficient.
-    angular_frequency (float): Angular frequency of the oscillation.
-    phase_angle (float): Phase angle.
-    y_shift (float): Vertical get_shifted_trunk_data of the oscillation.
-
-    Returns:
-    np.ndarray: Calculated values of the damped oscillation function for each time value.
-    """
-    function = initial_amplitude * np.exp(-damping_coeff * time) * np.cos(
-        2 * np.pi * angular_frequency * time + phase_angle) + y_shift
-    return function
-
+from sklearn.metrics import mean_absolute_error
 
 def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float, angular_frequency: float,
                phase_angle: float, y_shift: float, x_shift: float) -> np.ndarray:

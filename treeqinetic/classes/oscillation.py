@@ -10,8 +10,7 @@ from ..plotting.plot import plot_error_histogram
 from ..plotting import plot_oscillation
 from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from kj_core.classes.similarity_metrics import SimilarityMetrics
-from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, clean_peaks_and_valleys, \
-    interpolate_points
+from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, interpolate_points
 from ..analyse.fitting_functions import damped_osc, fit_damped_osc_mae
 
 from kj_logger import get_logger
@@ -56,7 +55,6 @@ class Oscillation(BaseClass):
         self.m_amplitude = None
         self.m_amplitude_2 = None
         self.m_frequency = None
-        self.m_y_shift = None
 
         # param from automatic fitting
         self.param_optimal = None
@@ -70,8 +68,6 @@ class Oscillation(BaseClass):
         self.errors = None
 
         # Perform manuel calculations
-        self.calc_m_y_shift()
-
         self.sample_rate = calc_sample_rate(self.df, "Sec_Since_Start")
         self.m_amplitude = calc_amplitude(self.df, self.sensor_name)
         self.calc_min_max()
@@ -81,31 +77,6 @@ class Oscillation(BaseClass):
 
     def __str__(self):
         return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
-
-    def calc_m_y_shift(self, window_size: int = 5, last_percent: float = 60) -> float:
-        """
-        Calculates and applies a y_shift based on the rolling mean of the last percentage of data.
-
-        This method modifies the sensor data by subtracting the calculated y_shift.
-
-        Args:
-            window_size (int): The size of the moving window for calculating the mean. Default is 5.
-            last_percent (float): The percentage of the latest data points to consider for the y_shift calculation. Default is 60.
-
-        Returns:
-            float: The calculated y_shift value.
-        """
-        # Calculate the number of points for the specified percentage of the data
-        last_points = int(last_percent / 100 * len(self.df))
-        # Retrieve the last part of the data for the specified sensor
-        last_data = self.df[self.sensor_name][last_points:]
-        # Calculate the y_shift as the mean of the rolling mean
-        y_shift = last_data.rolling(window=window_size).mean().dropna().mean()
-        # Apply the y_shift to the sensor data
-        # self.df[self.sensor_name] -= y_shift
-        # Store and return the y_shift
-        self.m_y_shift = y_shift
-        return y_shift
 
     def calc_min_max(self) -> dict:
         """
@@ -229,7 +200,7 @@ class Oscillation(BaseClass):
 
     def fit(self, initial_param: Dict[str, float] = None, param_bounds: Dict[str, Tuple] = None,
             metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]] = None,
-            plot: bool = True, plot_error: bool = False, dir_add: str = None, clean_peaks=False, interpolate=True,
+            plot: bool = True, plot_error: bool = False, dir_add: str = None, interpolate=True,
             remove_values_above: int = None) -> None:
         """
         Fits the model to the data using the provided initial parameters and parameter bounds.
@@ -256,14 +227,14 @@ class Oscillation(BaseClass):
         - None
         """
         if initial_param is None:
-            initial_param = self.CONFIG.Oscillation.initial_params
+            initial_param = self.CONFIG.Oscillation.initial_param
         if param_bounds is None:
             param_bounds = self.CONFIG.Oscillation.param_bounds
         if metrics_warning is None:
             metrics_warning = self.CONFIG.Oscillation.metrics_warning
 
         try:
-            self.get_df_fit(clean_peaks, interpolate, remove_values_above)
+            self.get_df_fit(interpolate, remove_values_above)
             self.calc_param_optimal(initial_param, param_bounds)
             self.calc_metrics(metrics_warning)
             self.calc_errors()
@@ -278,7 +249,7 @@ class Oscillation(BaseClass):
         except Exception as e:
             logger.critical(f"Error in fit method: {e}", exc_info=True)
 
-    def get_df_fit(self, clean_peaks: bool, interpolate: bool, remove_values_above: int) -> None:
+    def get_df_fit(self, interpolate: bool, remove_values_above: int) -> None:
         """
         Prepares the dataframe for fitting by cleaning and interpolating data.
 
@@ -293,8 +264,6 @@ class Oscillation(BaseClass):
         """
         try:
             df_fit = self.df.copy()
-            if clean_peaks:
-                df_fit = clean_peaks_and_valleys(df_fit, self.sensor_name, self.peaks, self.valleys)
             if interpolate:
                 df_fit = interpolate_points(df_fit, self.sensor_name, 50)
             if remove_values_above:
@@ -317,13 +286,13 @@ class Oscillation(BaseClass):
         - None
         """
         try:
-            initial_param_list = [initial_param[key] for key in initial_param]
-            lower_bounds, upper_bounds = zip(*[param_bounds[key] for key in param_bounds])
-            param_bounds_list = (lower_bounds, upper_bounds)
+            param_names = list(initial_param.keys())
+            initial_param_list = [initial_param[name] for name in param_names]
+            lower_bounds, upper_bounds = zip(*[param_bounds[name] for name in param_names])
+            param_bounds_list = (list(lower_bounds), list(upper_bounds))
+
             self.param_optimal = fit_damped_osc_mae(self.df_fit, self.sensor_name, initial_param=initial_param_list,
                                                     param_bounds=param_bounds_list)
-            # self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
-            # param_bounds=param_bounds_list)
             param_labels = self.CONFIG.Oscillation.param_labels
             self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
         except Exception as e:
@@ -385,21 +354,28 @@ class Oscillation(BaseClass):
         self.errors = errors
         return errors
 
-    def plot_fit(self, dir_add: Optional[str] = None) -> None:
+    def plot_fit(self, dir_add: Optional[str] = None, prefix_warning: bool = True) -> None:
         """
         Plots the fitting results and saves the plot.
 
         Parameters:
         - dir_add: Optional sub-directory name for saving the plot.
+        - prefix_warning: Boolean flag to indicate if the filename should be prefixed with "warning_" when a warning exists.
         """
         try:
+            # Erstellen des Plots
             fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name,
                                                 self.param_optimal_dict, self.param_optimal,
                                                 self.metrics_dict, metrics_warning=self.metric_warning,
                                                 peaks=self.peaks, valleys=self.valleys)
 
-            self.PLOT_MANAGER.save_plot(fig, f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}",
-                                        subdir=f"osc_fit_1{dir_add}")
+            # Dateiname entsprechend dem metric_warning Status und prefix_warning Flag
+            filename = f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}"
+            if self.metric_warning and prefix_warning:
+                filename = "warning_" + filename
+
+            # Speichern des Plots
+            self.PLOT_MANAGER.save_plot(fig, filename, subdir=f"osc_fit_1{dir_add}")
             logger.debug(f"Plot for measurement: '{self}' successful.")
         except Exception as plot_error:
             logger.error(f"Error in plotting: {plot_error}")
