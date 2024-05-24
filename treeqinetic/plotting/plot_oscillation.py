@@ -64,13 +64,13 @@ def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, 
     param_text = "Optimal Params:\n"
     # Ergänzt param_text um alle Parameter aus optimal_param_dict
     for label, value in param_optimal_dict.items():
-        param_text += f"{label}: {value:.2f}\n"
+        param_text += f"{label}: {value:.4f}\n"
 
     # Ergänzt param_text um alle Metriken aus dem metrics dict, falls vorhanden
     if metrics is not None:
         param_text += "\nMetrics:\n"
         for metric, value in metrics.items():
-            param_text += f"{metric}: {value:.2f}\n"
+            param_text += f"{metric}: {value:.4f}\n"
 
     # Hinzufügen der formatierten Parameter zum Plot in der oberen rechten Ecke
     plt.annotate(param_text, xy=(0.95, 0.95), xycoords='axes fraction', fontsize=10,
@@ -79,7 +79,7 @@ def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, 
 
     # Anzeige von "Warning" in rot und fett, falls metrics_warning True ist
     if metrics_warning:
-        plt.annotate("Metrics Warning", xy=(0.5, 0.25), xycoords='axes fraction', fontsize=25,
+        plt.annotate("Metrics Warning", xy=(0.25, 0.25), xycoords='axes fraction', fontsize=25,
                      color='red', fontweight='bold', verticalalignment='top', horizontalalignment='right')
 
     plt.legend(loc="lower right")

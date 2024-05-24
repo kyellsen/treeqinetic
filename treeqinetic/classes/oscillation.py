@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 
 from scipy.signal import find_peaks
 
@@ -54,7 +54,6 @@ class Oscillation(BaseClass):
         # param from manuell fitting
         self.m_amplitude = None
         self.m_amplitude_2 = None
-        self.m_frequency = None
 
         # param from automatic fitting
         self.param_optimal = None
@@ -73,7 +72,6 @@ class Oscillation(BaseClass):
         self.calc_min_max()
         self.calc_peaks_and_valleys()
         self.calc_m_amplitude_2()
-        self.calc_m_frequency()
 
     def __str__(self):
         return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
@@ -153,50 +151,6 @@ class Oscillation(BaseClass):
             logger.warning(
                 f"Failed to calculate amplitude_2 for sensor {self.sensor_name}. Using half of amplitude as fallback. Error: {e}")
         return self.m_amplitude_2
-
-    def calc_m_frequency(self) -> Optional[float]:
-        """
-        Calculates the mean frequency based on the time intervals between peaks and valleys.
-
-        This method extracts time values from the 'peaks' and 'valleys' attributes of the class,
-        computes the time differences between consecutive peaks and valleys, and then calculates
-        the mean of these time differences. The inverse of this mean time delta is considered as
-        the mean frequency, which is then set to the 'm_frequency' attribute.
-
-        Returns:
-            The calculated mean frequency as a float, if successful. Returns None if the calculation
-            cannot be completed due to data issues.
-        """
-
-        try:
-            # Extracting time values for peaks and valleys
-            peak_times = np.array([peak['time'] for peak in self.peaks])
-            valley_times = np.array([valley['time'] for valley in self.valleys])
-
-            # Ensure there are enough data points to calculate differences
-            if len(peak_times) < 2 or len(valley_times) < 2:
-                logger.warning("Insufficient data points in peaks or valleys for frequency calculation.")
-                return None
-
-            # Calculating time deltas
-            time_deltas_peaks = np.diff(peak_times)
-            time_deltas_valleys = np.diff(valley_times)
-
-            # Concatenating and computing mean
-            mean_time_delta = np.mean(np.concatenate((time_deltas_peaks, time_deltas_valleys)))
-
-            # Prevent division by zero
-            if mean_time_delta == 0:
-                logger.error("Mean time delta is zero, cannot calculate frequency.")
-                return None
-
-            # Calculating frequency
-            self.m_frequency = 1 / mean_time_delta
-            return self.m_frequency
-
-        except Exception as e:
-            logger.critical(f"Unexpected error occurred during frequency calculation: {e}", exc_info=True)
-            return None
 
     def fit(self, initial_param: Dict[str, float] = None, param_bounds: Dict[str, Tuple] = None,
             metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]] = None,
@@ -354,19 +308,44 @@ class Oscillation(BaseClass):
         self.errors = errors
         return errors
 
-    def plot_fit(self, dir_add: Optional[str] = None, prefix_warning: bool = True) -> None:
+    def plot_fit(self, dir_add: Optional[str] = None, prefix_warning: bool = True,
+                 metrics_to_plot: Optional[List[str]] = None) -> None:
         """
         Plots the fitting results and saves the plot.
 
         Parameters:
         - dir_add: Optional sub-directory name for saving the plot.
         - prefix_warning: Boolean flag to indicate if the filename should be prefixed with "warning_" when a warning exists.
+        - metrics_to_plot: Optional list of metric names to be plotted from metrics_dict.
+
+        Available metrics in metrics_dict:
+        - pearson_r: Pearson correlation coefficient
+        - p_value: p-value of the Pearson correlation
+        - r2: R-squared, coefficient of determination
+        - mse: Mean Squared Error
+        - rmse: Root Mean Squared Error
+        - nrmse: Normalized RMSE (Normalized Root Mean Squared Error)
+        - cv: Coefficient of Variation
+        - mae: Mean Absolute Error
+        - nmae: Normalized MAE (Normalized Mean Absolute Error)
         """
+        # Default value for metrics_to_plot if not provided
+        if metrics_to_plot is None:
+            metrics_to_plot = self.CONFIG.Oscillation.metrics_to_plot
+
         try:
+            # Filter the metrics_dict based on metrics_to_plot
+            filtered_metrics_dict = {}
+            for metric in metrics_to_plot:
+                if metric in self.metrics_dict:
+                    filtered_metrics_dict[metric] = self.metrics_dict[metric]
+                else:
+                    logger.warning(f"Metric '{metric}' not found in metrics_dict and will be skipped.")
+
             # Erstellen des Plots
             fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name,
                                                 self.param_optimal_dict, self.param_optimal,
-                                                self.metrics_dict, metrics_warning=self.metric_warning,
+                                                filtered_metrics_dict, metrics_warning=self.metric_warning,
                                                 peaks=self.peaks, valleys=self.valleys)
 
             # Dateiname entsprechend dem metric_warning Status und prefix_warning Flag

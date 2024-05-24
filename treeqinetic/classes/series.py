@@ -107,17 +107,16 @@ class Series(BaseClass):
                 'min_value': osc.min_value,
                 'm_amplitude': osc.m_amplitude,
                 'm_amplitude_2': osc.m_amplitude_2,
-                'm_frequency': osc.m_frequency,
                 'metrics_warning': osc.metric_warning,
             }
-
-            # Werte aus metrics_dict hinzufügen
-            if osc.metrics_dict:
-                row.update(osc.metrics_dict)
 
             # Werte aus param_optimal_dict hinzufügen
             if osc.param_optimal_dict:
                 row.update(osc.param_optimal_dict)
+
+            # Werte aus metrics_dict hinzufügen
+            if osc.metrics_dict:
+                row.update(osc.metrics_dict)
 
             data.append(row)
 

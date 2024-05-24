@@ -34,21 +34,21 @@ class Config(CoreConfig):
         }
 
         param_bounds = {
-            "initial_amplitude": (100, 250),
+            "initial_amplitude": (125, 250),
             "damping_coeff": (0.1, 1),
             "angular_frequency": (0.35, 0.58),
             "phase_angle": (-0.2, 0.2),
-            "y_shift": (-50, 50),
+            "y_shift": (-50, 60),
             "x_shift": (-0.25, 0.25),
         }
 
         metrics_warning = {
             "pearson_r": (0.50, 1),
-            "p_value": (-np.inf, np.inf),
-            "r2": (-np.inf, np.inf),
-            "mse": (0, 2000),
-            "rmse": (0, 50),
-            "mae": (0, 20)
+            "nrmse": (-np.inf, np.inf),
+            "mae": (-np.inf, np.inf),
+            "nmae": (-np.inf, np.inf)
         }
+
+        metrics_to_plot = ['pearson_r', 'p_value', 'r2', 'nrmse', 'mae', 'nmae']
 
         error = 1000
