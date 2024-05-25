@@ -20,67 +20,63 @@ logger = get_logger(__name__)
 
 class Oscillation(BaseClass):
 
-    def __init__(self, measurement, sensor_name, start_index, df: pd.DataFrame):
+    def __init__(self, measurement, sensor_name: str, start_index: int, df: pd.DataFrame):
         super().__init__()
-
         self.measurement = measurement
-        self.sensor_name = sensor_name  # = Column Name
+        self.sensor_name = sensor_name
         self.start_index = start_index
         self.df_orig = df
         self.df_orig_max = df[sensor_name].max()
         self.df_orig_min = df[sensor_name].min()
 
-        # Reset the index of the DataFrame and make sure we don't lose the original index
-        self.df = df.reset_index(drop=True, inplace=False)  # inplace=False -> creates a copy of df
-
-
-        # Normalize the 'Sec_Since_Start' column by subtracting its minimum value
-        if "Sec_Since_Start" in self.df.columns:
-            min_value = self.df["Sec_Since_Start"].min()
-            self.df["Sec_Since_Start"] = self.df["Sec_Since_Start"] - min_value
-        else:
-            raise ValueError("Column 'Sec_Since_Start' not found in DataFrame.")
+        # Prepare the DataFrame
+        self.df = self._prepare_dataframe(df)
 
         self.df_fit = None
-
-        # Initialize attributes with placeholder values
         self.sample_rate = None
-
         self.max_idx = None
         self.max_time = None
         self.max_value = None
-
         self.min_idx = None
         self.min_time = None
         self.min_value = None
-
         self.peaks = []
         self.valleys = []
-
-        # param from manuell fitting
         self.m_amplitude = None
         self.m_amplitude_2 = None
-
-        # param from automatic fitting
         self.param_optimal = None
         self.param_optimal_dict = None
-
-        # Quality metrics from fitting
         self.metrics = None
         self.metrics_dict = None
         self.metric_warning = False
-
         self.errors = None
 
-        # Perform manuel calculations
+        # Perform initial calculations
+        self._initial_calculations()
+
+    def __str__(self):
+        return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
+
+    def _prepare_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Prepare and normalize the DataFrame.
+        """
+        df = df.reset_index(drop=True, inplace=False)
+        if "Sec_Since_Start" not in df.columns:
+            raise ValueError("Column 'Sec_Since_Start' not found in DataFrame.")
+        min_value = df["Sec_Since_Start"].min()
+        df["Sec_Since_Start"] -= min_value
+        return df
+
+    def _initial_calculations(self) -> None:
+        """
+        Perform initial calculations including sample rate, amplitude, min/max values, peaks, and valleys.
+        """
         self.sample_rate = calc_sample_rate(self.df, "Sec_Since_Start")
         self.m_amplitude = calc_amplitude(self.df, self.sensor_name)
         self.calc_min_max()
         self.calc_peaks_and_valleys()
         self.calc_m_amplitude_2()
-
-    def __str__(self):
-        return f"Oscillation: '{self.measurement.file_name}', ID: {self.measurement.id}, Sensor: {self.sensor_name}'"
 
     def calc_min_max(self) -> dict:
         """
@@ -204,7 +200,6 @@ class Oscillation(BaseClass):
                 self.plot_fit(dir_add)
             if plot_error:
                 self.plot_fit_errors(dir_add)
-
         except Exception as e:
             logger.critical(f"Error in fit method: {e}", exc_info=True)
 
