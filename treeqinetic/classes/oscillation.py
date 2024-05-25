@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Dict, Tuple, Optional, List
 
 from scipy.signal import find_peaks
+from scipy.interpolate import PchipInterpolator
 
 from .base_class import BaseClass
 
@@ -10,8 +11,7 @@ from ..plotting.plot import plot_error_histogram
 from ..plotting import plot_oscillation
 from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from kj_core.classes.similarity_metrics import SimilarityMetrics
-from ..analyse.correct_oscillation import zero_base_column, remove_values_above_percentage, interpolate_points
-from ..analyse.fitting_functions import damped_osc, fit_damped_osc_mae
+from ..analyse.fitting_functions import damped_osc, fit_damped_osc
 
 from kj_logger import get_logger
 
@@ -32,8 +32,14 @@ class Oscillation(BaseClass):
 
         # Reset the index of the DataFrame and make sure we don't lose the original index
         self.df = df.reset_index(drop=True, inplace=False)  # inplace=False -> creates a copy of df
+
+
         # Normalize the 'Sec_Since_Start' column by subtracting its minimum value
-        self.df = zero_base_column(self.df, "Sec_Since_Start")
+        if "Sec_Since_Start" in self.df.columns:
+            min_value = self.df["Sec_Since_Start"].min()
+            self.df["Sec_Since_Start"] = self.df["Sec_Since_Start"] - min_value
+        else:
+            raise ValueError("Column 'Sec_Since_Start' not found in DataFrame.")
 
         self.df_fit = None
 
@@ -152,10 +158,9 @@ class Oscillation(BaseClass):
                 f"Failed to calculate amplitude_2 for sensor {self.sensor_name}. Using half of amplitude as fallback. Error: {e}")
         return self.m_amplitude_2
 
-    def fit(self, initial_param: Dict[str, float] = None, param_bounds: Dict[str, Tuple] = None,
+    def fit(self, initial_param: Dict[str, float] = None, param_bounds: Dict[str, Tuple] = None, optimize_criterion: str = None,
             metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]] = None,
-            plot: bool = True, plot_error: bool = False, dir_add: str = None, interpolate=True,
-            remove_values_above: int = None) -> None:
+            plot: bool = True, plot_error: bool = False, dir_add: str = None, interpolate=True) -> None:
         """
         Fits the model to the data using the provided initial parameters and parameter bounds.
         It calculates optimal parameters, metrics, and optionally plots the results.
@@ -169,13 +174,13 @@ class Oscillation(BaseClass):
         Parameters:
         - initial_param: A dictionary of initial parameter values.
         - param_bounds: A dictionary of tuples representing the lower and upper bounds for each parameter.
+        - optimize_criterion (str): Criterion to optimize ('mae' or 'mse').
         - metrics_warning: An optional dictionary specifying warning thresholds for each metric.
         - plot: A boolean flag to indicate whether to generate a plot.
         - plot_error: A boolean flag to indicate whether to generate a error plot.
         - dir_add
         - clean_peaks
         - interpolate
-        - remove_values_above: default None or 200 (percent)
 
         Returns:
         - None
@@ -188,8 +193,8 @@ class Oscillation(BaseClass):
             metrics_warning = self.CONFIG.Oscillation.metrics_warning
 
         try:
-            self.get_df_fit(interpolate, remove_values_above)
-            self.calc_param_optimal(initial_param, param_bounds)
+            self.prepare_df_for_fitting(interpolate)
+            self.calc_param_optimal(initial_param, param_bounds, optimize_criterion)
             self.calc_metrics(metrics_warning)
             self.calc_errors()
 
@@ -203,15 +208,17 @@ class Oscillation(BaseClass):
         except Exception as e:
             logger.critical(f"Error in fit method: {e}", exc_info=True)
 
-    def get_df_fit(self, interpolate: bool, remove_values_above: int) -> None:
+    def prepare_df_for_fitting(self, interpolate: bool, sample_rate: float = 50.0) -> None:
         """
         Prepares the dataframe for fitting by cleaning and interpolating data.
 
         This method performs the following operations on the dataframe:
         1. Copies the original dataframe.
-        2. Cleans peaks and valleys.
-        3. Interpolates points.
-        4. Removes values above a certain percentage threshold.
+        2. Interpolates points if requested.
+
+        Args:
+        interpolate (bool): Whether to interpolate points.
+        sample_rate (float): Desired sample rate for interpolation in Hz.
 
         Returns:
         - None
@@ -219,22 +226,31 @@ class Oscillation(BaseClass):
         try:
             df_fit = self.df.copy()
             if interpolate:
-                df_fit = interpolate_points(df_fit, self.sensor_name, 50)
-            if remove_values_above:
-                df_fit = remove_values_above_percentage(df_fit, self.sensor_name, self.m_amplitude_2,
-                                                        remove_values_above)
+                # Integration of interpolation directly within the method
+                interpolator = PchipInterpolator(df_fit['Sec_Since_Start'], df_fit[self.sensor_name])
+                min_time = df_fit['Sec_Since_Start'].min()
+                max_time = df_fit['Sec_Since_Start'].max()
+                total_time = max_time - min_time
+                num_points = int(total_time * sample_rate)
+
+                new_times = np.linspace(min_time, max_time, num=num_points)
+                new_values = interpolator(new_times)
+
+                df_fit = pd.DataFrame({'Sec_Since_Start': new_times, self.sensor_name: new_values})
+
             self.df_fit = df_fit
         except Exception as e:
-            logger.error(f"Error in get_df_fit: {e}")
+            logger.error(f"Error in prepare_df_for_fitting: {e}")
 
     def calc_param_optimal(self, initial_param: Dict[str, float],
-                           param_bounds: Dict[str, Tuple[float, float]]) -> None:
+                           param_bounds: Dict[str, Tuple[float, float]], optimize_criterion: str) -> None:
         """
         Calculates the optimal parameters for the model.
 
         Parameters:
         - initial_param: A dictionary of initial parameter values.
         - param_bounds: A dictionary of tuples representing the lower and upper bounds for each parameter.
+        - optimize_criterion (str): Criterion to optimize ('mae' or 'mse').
 
         Returns:
         - None
@@ -245,8 +261,8 @@ class Oscillation(BaseClass):
             lower_bounds, upper_bounds = zip(*[param_bounds[name] for name in param_names])
             param_bounds_list = (list(lower_bounds), list(upper_bounds))
 
-            self.param_optimal = fit_damped_osc_mae(self.df_fit, self.sensor_name, initial_param=initial_param_list,
-                                                    param_bounds=param_bounds_list)
+            self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
+                                                param_bounds=param_bounds_list, optimize_criterion=optimize_criterion)
             param_labels = self.CONFIG.Oscillation.param_labels
             self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
         except Exception as e:
