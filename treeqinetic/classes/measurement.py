@@ -126,7 +126,11 @@ class Measurement(BaseClass):
                     elif section == 'Data':
                         header = line.strip().split('\t')
                         data = pd.read_csv(file, delimiter='\t', decimal=',', names=header)
-                        data = data.apply(pd.to_numeric, errors='ignore')
+                        try:
+                            data = data.apply(pd.to_numeric)
+                        except ValueError as e:
+                            logger.warning(f"Conversion error in DataFrame: {e}")
+                            return data
 
             measurement = cls(file_path, project, tree, date, load, test, data)
             measurement.get_time()

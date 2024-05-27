@@ -1,1 +1,10 @@
-
+kj_logger==1.0.0
+kj_core==1.0.0
+matplotlib==3.9.0
+numpy==1.26.4
+pandas==2.2.2
+scikit_learn==1.5.0
+scipy==1.13.1
+seaborn==0.13.2
+setuptools==70.0.0
+SQLAlchemy==2.0.30
