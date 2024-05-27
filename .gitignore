@@ -1,2 +1,4 @@
 .idea/
 treeqinetic.egg-info/
+build/
+dist/
