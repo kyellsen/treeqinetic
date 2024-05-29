@@ -10,7 +10,7 @@ from treeqinetic import Series
 
 if __name__ == "__main__":
     main_path = Path(r"C:\kyellsen\005_Projekte\2023_Kronensicherung_Plesse")
-    analyse_name = r"2023_Kronensicherung_Plesse_2023-11-14"
+    analyse_name = r"2023_Kronensicherung_Plesse_2024-05-29"
     data_path = main_path / "020_Daten"  # Für alle Daten-Importe des Projektes gemeinsam
     working_directory = main_path / "030_Analysen" / analyse_name / "working_directory"  # Für alle Daten-Exporte des Projektes gemeinsam
 
