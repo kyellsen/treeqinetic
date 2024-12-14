@@ -73,24 +73,31 @@ def plot_error_violin(errors_dict: dict, title: str = "Violin Plot of Errors", s
     Args:
         errors_dict (dict): A dictionary where keys are categories (e.g., sensor names) and values are arrays of errors.
         title (str): Title of the plot.
-        show_plot:
+        show_plot: If True, display the plot.
 
     Returns:
         plt.Figure: The created matplotlib figure.
     """
     # Vorbereiten der Daten für den Violin-Plot
     data_for_plotting = []
-    for category, errors in errors_dict.items():
+    for sensor, errors in errors_dict.items():
         for error in errors:
-            data_for_plotting.append({'Category': category, 'Error': error})
+            data_for_plotting.append({'Sensor': sensor, 'Error': error})
 
     df_for_plotting = pd.DataFrame(data_for_plotting)
 
     # Erstellen des Violin-Plots
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.violinplot(x='Category', y='Error', data=df_for_plotting, ax=ax, palette=sns.color_palette("deep", len(errors_dict)), legend=False)
+    sns.violinplot(
+        x='Sensor',
+        y='Error',
+        data=df_for_plotting,
+        hue='Sensor',  # Weise 'Category' als hue zu
+        palette=sns.color_palette("deep", len(errors_dict)),
+        legend=False  # Verhindert die Anzeige einer Legende
+    )
     ax.set_title(title)
-    ax.set_xlabel('Category')
+    ax.set_xlabel('Sensor')
     ax.set_ylabel('Error')
 
     if show_plot:
