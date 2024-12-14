@@ -175,7 +175,6 @@ class Oscillation(BaseClass):
         - plot: A boolean flag to indicate whether to generate a plot.
         - plot_error: A boolean flag to indicate whether to generate a error plot.
         - dir_add
-        - clean_peaks
         - interpolate
 
         Returns:

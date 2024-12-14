@@ -5,7 +5,7 @@ from scipy.optimize import minimize, curve_fit
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
-def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float, angular_frequency: float,
+def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float, frequency: float,
                phase_angle: float, y_shift: float, x_shift: float) -> np.ndarray:
     """
     Damped oscillation function with optional horizontal shift.
@@ -14,7 +14,7 @@ def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float,
     time (np.ndarray): Array of time values.
     initial_amplitude (float): Initial amplitude of the oscillation.
     damping_coeff (float): Damping coefficient.
-    angular_frequency (float): Angular frequency of the oscillation.
+    frequency (float): Angular frequency of the oscillation.
     phase_angle (float): Phase angle.
     y_shift (float): Vertical shift of the oscillation.
     x_shift (float): Horizontal shift of the oscillation.
@@ -23,20 +23,20 @@ def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float,
     np.ndarray: Calculated values of the damped oscillation function for each time value.
     """
     function = initial_amplitude * np.exp(-damping_coeff * (time - x_shift)) * np.cos(
-        2 * np.pi * angular_frequency * (time - x_shift) + phase_angle) + y_shift
+        2 * np.pi * frequency * (time - x_shift) + phase_angle) + y_shift
     return function
 
 
 def mae_loss(params, time, sensor_data):
-    initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift, x_shift = params
-    predicted = damped_osc(time, initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift, x_shift)
+    initial_amplitude, damping_coeff, frequency, phase_angle, y_shift, x_shift = params
+    predicted = damped_osc(time, initial_amplitude, damping_coeff, frequency, phase_angle, y_shift, x_shift)
     mae = mean_absolute_error(sensor_data, predicted)
     return mae
 
 
 def mse_loss(params, time, sensor_data):
-    initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift, x_shift = params
-    predicted = damped_osc(time, initial_amplitude, damping_coeff, angular_frequency, phase_angle, y_shift, x_shift)
+    initial_amplitude, damping_coeff, frequency, phase_angle, y_shift, x_shift = params
+    predicted = damped_osc(time, initial_amplitude, damping_coeff, frequency, phase_angle, y_shift, x_shift)
     mse = mean_squared_error(sensor_data, predicted)
     return mse
 
