@@ -121,6 +121,9 @@ class Series(BaseClass):
             data.append(row)
 
         df = pd.DataFrame(data)
+
+        # Jetzt sensor_name zu 'category' konvertieren
+        df['sensor_name'] = df['sensor_name'].astype('category')
         return df
 
     @staticmethod

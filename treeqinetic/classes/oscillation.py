@@ -12,6 +12,7 @@ from ..plotting import plot_oscillation
 from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from kj_core.classes.similarity_metrics import SimilarityMetrics
 from ..analyse.fitting_functions import damped_osc, fit_damped_osc
+from ..analyse.calc_param_add import calc_frequency_undamped, calc_damping_ratio
 
 from kj_logger import get_logger
 
@@ -259,8 +260,33 @@ class Oscillation(BaseClass):
                                                 param_bounds=param_bounds_list, optimize_criterion=optimize_criterion)
             param_labels = self.CONFIG.Oscillation.param_labels
             self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
+
+            # Abgeleitete Parameter berechnen
+            self.calc_additional_parameters()
         except Exception as e:
             logger.error(f"Error in calc_param_optimal: {e}")
+
+    def calc_additional_parameters(self) -> None:
+        """
+        Calculates additional parameters (frequency_undamped, damping_ratio)
+        based on values in self.param_optimal_dict.
+        """
+        try:
+            frequency_damped = self.param_optimal_dict["frequency_damped"]
+            damping_coeff = self.param_optimal_dict["damping_coeff"]
+
+            freq_undamped = calc_frequency_undamped(frequency_damped, damping_coeff)
+            damp_ratio = calc_damping_ratio(damping_coeff, frequency_damped)
+
+            self.param_optimal_dict.update({
+                "frequency_undamped": freq_undamped,
+                "damping_ratio": damp_ratio
+            })
+
+        except KeyError as e:
+            logger.warning(f"Missing parameter for derived calculation: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to calculate derived parameters: {e}", exc_info=True)
 
     def calc_metrics(self, metrics_warning: Optional[Dict[str, Tuple[Optional[float], Optional[float]]]]) -> Dict[
         str, float]:

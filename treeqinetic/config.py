@@ -22,12 +22,12 @@ class Config(CoreConfig):
         super().__init__(f"{working_directory}/{self.package_name_short}")
 
     class Oscillation:
-        param_labels = ["initial_amplitude", "damping_coeff", "frequency", "phase_angle", "y_shift", "x_shift"]
+        param_labels = ["initial_amplitude", "damping_coeff", "frequency_damped", "phase_angle", "y_shift", "x_shift"]
 
         initial_param = {
             "initial_amplitude": 170,
             "damping_coeff": 0.32,
-            "frequency": 0.44,
+            "frequency_damped": 0.44,
             "phase_angle": 0,
             "y_shift": 0,
             "x_shift": 0
@@ -36,11 +36,13 @@ class Config(CoreConfig):
         param_bounds = {
             "initial_amplitude": (150, 250),
             "damping_coeff": (0.1, 1),
-            "frequency": (0.35, 0.58),
+            "frequency_damped": (0.35, 0.58),
             "phase_angle": (-0.2, 0.2),
             "y_shift": (-60, 60),
             "x_shift": (-0.25, 0.75),
         }
+
+        param_add_labels = ["frequency_undamped", "damping_ratio"]
 
         metrics_warning = {
             "pearson_r": (0.75, 1),
