@@ -71,7 +71,7 @@ def plot_select_oscillations(data: pd.DataFrame,
                 sensor_name,
                 x_label='Zeit $t$ [s]',
                 y_label='Absolute Randfaserdehnung $\\Delta$l [$\\mu$m] / Neigung $\\varphi$ [°]',
-                title=f'Originaldaten {sensor_names}',
+                title=f'Originaldaten',
                 color="blue"
             )
 
@@ -82,7 +82,7 @@ def plot_select_oscillations(data: pd.DataFrame,
                 sensor_name,
                 x_label='Zeit $t$ [s]',
                 y_label='Absolute Randfaserdehnung $\\Delta $l [$\\mu$m] / Neigung $\\varphi$ [°]',
-                title=f'Selektierte Schwingung {sensor_names}',
+                title=f'Selektierte Schwingungsdaten',
                 color="red"
             )
 

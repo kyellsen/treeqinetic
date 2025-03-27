@@ -7,7 +7,7 @@ import json
 from .base_class import BaseClass
 from .measurement import Measurement
 
-from ..plotting.plot import plot_error_histogram, plot_error_qq, plot_error_violin
+from ..plotting.plot_fit_error import plot_error_histogram, plot_error_qq, plot_error_violin
 
 from kj_logger import get_logger
 

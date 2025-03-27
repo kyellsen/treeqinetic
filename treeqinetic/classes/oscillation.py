@@ -7,7 +7,7 @@ from scipy.interpolate import PchipInterpolator
 
 from .base_class import BaseClass
 
-from ..plotting.plot import plot_error_histogram
+from ..plotting.plot_fit_error import plot_error_histogram
 from ..plotting import plot_oscillation
 from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from kj_core.classes.similarity_metrics import SimilarityMetrics
@@ -379,7 +379,7 @@ class Oscillation(BaseClass):
                     logger.warning(f"Metric '{metric}' not found in metrics_dict and will be skipped.")
 
             # Erstellen des Plots
-            fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name,
+            fig = plot_oscillation.plot_osc_fit(self.df_fit, self.df, self.sensor_name, self.measurement.id,
                                                 self.param_optimal_dict, self.param_optimal,
                                                 filtered_metrics_dict, metrics_warning=self.metric_warning,
                                                 peaks=self.peaks, valleys=self.valleys)

@@ -26,7 +26,7 @@ def extract_peak_valley_info(peaks: List[Dict[str, float]], valleys: List[Dict[s
     return peak_times, peak_values, valley_times, valley_values
 
 
-def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, param_labels: List,
+def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, measurement_id: int, param_labels: List,
                  param_optimal: np.ndarray,
                  metrics: dict = None, metrics_warning: bool = False, peaks: List = None, valleys: List = None):
     # Berechnung der angepassten Schwingung
@@ -38,12 +38,12 @@ def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, 
     fitted_oscillation = damped_osc(time_for_fit, *param_optimal)
 
     fig = plt.figure()
-    plt.plot(data['Sec_Since_Start'], data[sensor_name], color='black', zorder=2, label="Modified Measurement")
+    plt.plot(data['Sec_Since_Start'], data[sensor_name], color='black', zorder=2, label="Modifiziert Messwerte")
     # plt.scatter(data['Sec_Since_Start'], data[sensor_name], marker='.', s=5, c='blue', zorder=1, alpha=0.5,
     #             label="New Points")
-    plt.plot(data_orig['Sec_Since_Start'], data_orig[sensor_name], color='grey', zorder=1, label="Original Measurement")
+    # plt.plot(data_orig['Sec_Since_Start'], data_orig[sensor_name], color='grey', zorder=1, label="Original Messwerte")
     plt.scatter(data_orig['Sec_Since_Start'], data_orig[sensor_name], marker='*', s=10, c='blue', zorder=4, alpha=1,
-                label="Original Points")
+                label="Original Messpunkte")
 
     if peaks is not None and valleys is not None:
         peak_times, peak_values, valley_times, valley_values = extract_peak_valley_info(peaks, valleys)
@@ -53,34 +53,32 @@ def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, 
         plt.scatter(peak_times, peak_values, c='red', marker='v', zorder=5, label='Peaks')
         plt.scatter(valley_times, valley_values, c='green', marker='^', zorder=5, label='Valleys')
 
-    plt.plot(time_for_fit, fitted_oscillation, label="Fitted Function", color="red", zorder=3)
-    plt.title(f"Oscillation {sensor_name} and fitted Funktion")
-    plt.xlabel("Time (Sec)")
-    plt.ylabel(f"Elongation/Inclination [µm/°] {sensor_name}")
+    plt.plot(time_for_fit, fitted_oscillation, label="Angepasste Funktion", color="red", zorder=3)
+    plt.title(f"Anpassung Schwingung an Messung ID {measurement_id} - {sensor_name}", fontsize=14)
+    plt.xlabel("Zeit $t$ [s]")
+    plt.ylabel(f"Absolute Randfaserdehnung $\\Delta$l [$\\mu$m] / Neigung $\\varphi$ [°]")
 
     # Parameterbezeichnungen und deren Werte formatieren
     param_optimal_dict = {label: param for label, param in zip(param_labels, param_optimal)}
 
-    param_text = "Optimal Params:\n"
+    param_text = "Bestimmte Parameter:\n"
     # Ergänzt param_text um alle Parameter aus optimal_param_dict
     for label, value in param_optimal_dict.items():
-        param_text += f"{label}: {value:.4f}\n"
+        param_text += f"{label}: {value:.2f}\n"
 
     # Ergänzt param_text um alle Metriken aus dem metrics dict, falls vorhanden
     if metrics is not None:
-        param_text += "\nMetrics:\n"
+        param_text += "\nQualitätsmetriken:\n"
+        # Anzeige von "Warning" in rot und fett, falls metrics_warning True ist
         for metric, value in metrics.items():
-            param_text += f"{metric}: {value:.4f}\n"
+            param_text += f"{metric}: {value:.2f}\n"
+        if metrics_warning:
+            param_text += f"\n! WARNUNG ! \nQualität ungenügend!\n\n"
 
     # Hinzufügen der formatierten Parameter zum Plot in der oberen rechten Ecke
     plt.annotate(param_text, xy=(0.95, 0.95), xycoords='axes fraction', fontsize=10,
                  bbox=dict(boxstyle="round,pad=0.3", facecolor='white', edgecolor='black'),
                  verticalalignment='top', horizontalalignment='right')
-
-    # Anzeige von "Warning" in rot und fett, falls metrics_warning True ist
-    if metrics_warning:
-        plt.annotate("Metrics Warning", xy=(0.25, 0.25), xycoords='axes fraction', fontsize=25,
-                     color='red', fontweight='bold', verticalalignment='top', horizontalalignment='right')
 
     plt.legend(loc="lower right")
     return fig
