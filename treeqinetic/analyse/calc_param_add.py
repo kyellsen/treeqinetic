@@ -4,6 +4,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Ergänze rechnerische Schwingungsparameter die Rust(2013) genutzt hat
+
 
 def calc_frequency_undamped(frequency_damped: float, damping_coeff: float) -> Optional[float]:
     """

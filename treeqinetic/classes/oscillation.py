@@ -26,9 +26,9 @@ class Oscillation(BaseClass):
         self.measurement = measurement
         self.sensor_name = sensor_name
         self.start_index = start_index
-        self.df_orig = df
-        self.df_orig_max = df[sensor_name].max()
-        self.df_orig_min = df[sensor_name].min()
+        self.df_full = df
+        self.max_value_full = df[sensor_name].max()
+        self.min_value_full = df[sensor_name].min()
 
         # Prepare the DataFrame
         self.df = self._prepare_dataframe(df)

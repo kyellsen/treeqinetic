@@ -1,0 +1,226 @@
+{
+    "id": {
+        "Kategorie": "ptq",
+        "Zeichen": "ID",
+        "Deutsch": "ID Messung",
+        "Datentyp": "int64",
+        "Einheit": "-",
+        "Beschreibung": "Eindeutige ID der Messung"
+    },
+    "file_name": {
+        "Kategorie": "ptq",
+        "Zeichen": "filename",
+        "Deutsch": "Dateiname",
+        "Datentyp": "object",
+        "Einheit": "-",
+        "Beschreibung": "Name der Quelldatei der Messung"
+    },
+    "sensor_name": {
+        "Kategorie": "ptq",
+        "Zeichen": "sensor",
+        "Deutsch": "Sensorname",
+        "Datentyp": "object",
+        "Einheit": "-",
+        "Beschreibung": "Bezeichnung des Elastometers"
+    },
+    "sample_rate": {
+        "Kategorie": "ptq",
+        "Zeichen": "$f_s$",
+        "Deutsch": "Abtastrate",
+        "Datentyp": "float64",
+        "Einheit": "Hz",
+        "Beschreibung": "Abtastrate der Datenaufzeichnung"
+    },
+    "max_strain": {
+        "Kategorie": "ptq",
+        "Zeichen": "$\\Delta l_{\\mathrm{max}}$",
+        "Deutsch": "Dehnung max. gemessen",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Gemessene maximale absolute Randfaserdehnung"
+    },
+    "max_compression": {
+        "Kategorie": "ptq",
+        "Zeichen": "$\\Delta l_{\\mathrm{comp,max}}$",
+        "Deutsch": "Stauchung max. gemessen",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Gemessene maximale absolute Randfaserstauchung"
+    },
+    "max_strain_osc": {
+        "Kategorie": "ptq",
+        "Zeichen": "$\\Delta l_{\\mathrm{max,osc}}$",
+        "Deutsch": "Maximale Dehnung (Oszillation)",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Gemessene maximale absolute Randfaserdehnung innerhalb der Schwingung"
+    },
+    "max_compression_osc": {
+        "Kategorie": "ptq",
+        "Zeichen": "$\\Delta l_{\\mathrm{comp,max,osc}}$",
+        "Deutsch": "Maximale Stauchung (Oszillation)",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Gemessene maximale absolute Randfaserstauchung innerhalb der Schwingung"
+    },
+    "m_amplitude": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$mA$",
+        "Deutsch": "Manuelle Amplitude",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Manuell berechnete Amplitude über den Schwingungsabschnitt"
+    },
+    "m_amplitude_2": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$mA_2$",
+        "Deutsch": "Manuelle Amplitude 2",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Manuell berechnete Amplitude zwischen 2. Peak und Minimum"
+    },
+    "metrics_warning": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "warning",
+        "Deutsch": "Fit-Warnung",
+        "Datentyp": "bool",
+        "Einheit": "-",
+        "Beschreibung": "Warnung, wenn Qualitätsmetrik Schwellenwerte unterschreitet"
+    },
+    "initial_amplitude": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$A$",
+        "Deutsch": "Anfangsamplitude",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Initiale Amplitude der angepassten Schwingung"
+    },
+    "damping_coeff": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$\\delta$",
+        "Deutsch": "Dämpfungskoeffizient",
+        "Datentyp": "float64",
+        "Einheit": "1/s",
+        "Beschreibung": "Koeffizient der exponentiellen Dämpfung"
+    },
+    "damping_ratio": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$D$",
+        "Deutsch": "Dämpfungsgrad",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Verhältnis von Dämpfung zu Frequenz"
+    },
+    "frequency_damped": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$f_{\\mathrm{d}}$",
+        "Deutsch": "Gedämpfte Frequenz",
+        "Datentyp": "float64",
+        "Einheit": "Hz",
+        "Beschreibung": "Frequenz der gedämpften Schwingung"
+    },
+    "frequency_undamped": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$f_0$",
+        "Deutsch": "Ungedämpfte Frequenz",
+        "Datentyp": "float64",
+        "Einheit": "Hz",
+        "Beschreibung": "Frequenz der ungedämpften Schwingung"
+    },
+    "pearson_r": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$r$",
+        "Deutsch": "Pearson-Korrelation",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Korrelationskoeffizient der Anpassung"
+    },
+    "nmae": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$\\mathrm{NMAE}$",
+        "Deutsch": "Normalisierter MAE",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Normalisierter mittlerer absoluter Fehler"
+    },
+    "nrmse": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$\\mathrm{NRMSE}$",
+        "Deutsch": "Normalisierter RMSE",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Normalisierter mittlerer quadratischer Fehler"
+    },
+    "phase_angle": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$\\varphi$",
+        "Deutsch": "Phasenwinkel",
+        "Datentyp": "float64",
+        "Einheit": "rad",
+        "Beschreibung": "Anfangsphase der Schwingung"
+    },
+    "x_shift": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$t_0$",
+        "Deutsch": "Zeitverschiebung",
+        "Datentyp": "float64",
+        "Einheit": "s",
+        "Beschreibung": "Horizontale Verschiebung der Schwingung"
+    },
+    "y_shift": {
+        "Kategorie": "ptq_osc",
+        "Zeichen": "$y_0$",
+        "Deutsch": "Vertikaler Versatz",
+        "Datentyp": "float64",
+        "Einheit": "$\\mu$m",
+        "Beschreibung": "Vertikaler Offset der Schwingung"
+    },
+    "p_value": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "p",
+        "Deutsch": "p-Wert",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Signifikanzwert der Pearson-Korrelation"
+    },
+    "r2": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$R^2$",
+        "Deutsch": "Bestimmtheitsmaß",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Erklärte Varianz durch das Modell"
+    },
+    "mse": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$\\mathrm{MSE}$",
+        "Deutsch": "Mittlerer quadratischer Fehler",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Mittlerer quadratischer Fehler der Anpassung"
+    },
+    "rmse": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$\\mathrm{RMSE}$",
+        "Deutsch": "Wurzel des mittleren quadratischen Fehlers",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Wurzel aus dem mittleren quadratischen Fehler"
+    },
+    "cv": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$\\mathrm{CV}$",
+        "Deutsch": "Variationskoeffizient",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Verhältnis von RMSE zum Mittelwert"
+    },
+    "mae": {
+        "Kategorie": "ptq_osc_metric",
+        "Zeichen": "$\\mathrm{MAE}$",
+        "Deutsch": "Mittlerer absoluter Fehler",
+        "Datentyp": "float64",
+        "Einheit": "-",
+        "Beschreibung": "Durchschnittlicher absoluter Fehler der Anpassung"
+    }
+}

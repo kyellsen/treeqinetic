@@ -1,7 +1,8 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from typing import List
+from typing import List, Dict
+import json
 
 from .base_class import BaseClass
 from .measurement import Measurement
@@ -103,8 +104,10 @@ class Series(BaseClass):
                 'file_name': osc.measurement.file_name,
                 'sensor_name': osc.sensor_name,
                 'sample_rate': osc.sample_rate,
-                'max_value': osc.max_value,
-                'min_value': osc.min_value,
+                'max_strain': osc.max_value_full,
+                'max_compression': osc.min_value_full,
+                'max_strain_osc': osc.max_value,
+                'max_compression_osc': osc.min_value,
                 'm_amplitude': osc.m_amplitude,
                 'm_amplitude_2': osc.m_amplitude_2,
                 'metrics_warning': osc.metric_warning,
@@ -125,6 +128,32 @@ class Series(BaseClass):
         # Jetzt sensor_name zu 'category' konvertieren
         df['sensor_name'] = df['sensor_name'].astype('category')
         return df
+
+    @staticmethod
+    def create_oscillations_data_dict() -> Dict[str, dict]:
+        """
+        Loads and returns the PTQ scillations data dictionary from JSON.
+
+        Returns
+        -------
+        Dict[str, dict]
+            Data dictionary mapping column names to their metadata description.
+        """
+        try:
+            json_path = Path(__file__).parent.parent / "ptq_oscillations_data_dict.json"
+            if not json_path.exists():
+                logger.warning(f"Data dictionary not found at: {json_path}")
+                return {}
+
+            with open(json_path, "r", encoding="utf-8") as f:
+                data_dict = json.load(f)
+
+            logger.info(f"Data dictionary loaded with {len(data_dict)} entries.")
+            return data_dict
+
+        except Exception as e:
+            logger.error(f"Error loading data dictionary: {e}")
+            return {}
 
     @staticmethod
     def normalize_errors(errors: np.ndarray, scale_factor: float) -> np.ndarray:

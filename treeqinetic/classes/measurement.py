@@ -270,7 +270,7 @@ class Measurement(BaseClass):
                 try:
                     oscillation = self.oscillations[sensor_name]
                     fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_name,
-                                                                    oscillations_data_orig=oscillation.df_orig)
+                                                                    oscillations_data_orig=oscillation.df_full)
 
                     filename = f"{self.id}_{sensor_name}_{self.file_name_text}"
                     self.PLOT_MANAGER.save_plot(fig, filename=filename, subdir=subdir)
@@ -289,7 +289,7 @@ class Measurement(BaseClass):
             subdir (str): Subdirectory for saving the plot.
         """
         try:
-            oscillations_data_orig = {sensor_name: self.oscillations[sensor_name].df_orig
+            oscillations_data_orig = {sensor_name: self.oscillations[sensor_name].df_full
                                       for sensor_name in sensor_names
                                       if sensor_name in self.oscillations}
             fig = plot_measurement.plot_select_oscillations(data=self.data, sensor_names=sensor_names,
