@@ -33,7 +33,7 @@
     },
     "max_strain": {
         "Kategorie": "ptq",
-        "Zeichen": "$\\Delta l_{\\mathrm{max}}$",
+        "Zeichen": "$\\Delta L_{\\mathrm{max}}$",
         "Deutsch": "Dehnung max. gemessen",
         "Datentyp": "float64",
         "Einheit": "$\\mu$m",
@@ -41,7 +41,7 @@
     },
     "max_compression": {
         "Kategorie": "ptq",
-        "Zeichen": "$\\Delta l_{\\mathrm{comp,max}}$",
+        "Zeichen": "$\\Delta L_{\\mathrm{comp,max}}$",
         "Deutsch": "Stauchung max. gemessen",
         "Datentyp": "float64",
         "Einheit": "$\\mu$m",
@@ -49,7 +49,7 @@
     },
     "max_strain_osc": {
         "Kategorie": "ptq",
-        "Zeichen": "$\\Delta l_{\\mathrm{max,osc}}$",
+        "Zeichen": "$\\Delta L_{\\mathrm{max,osc}}$",
         "Deutsch": "Maximale Dehnung (Oszillation)",
         "Datentyp": "float64",
         "Einheit": "$\\mu$m",
@@ -57,7 +57,7 @@
     },
     "max_compression_osc": {
         "Kategorie": "ptq",
-        "Zeichen": "$\\Delta l_{\\mathrm{comp,max,osc}}$",
+        "Zeichen": "$\\Delta L_{\\mathrm{comp,max,osc}}$",
         "Deutsch": "Maximale Stauchung (Oszillation)",
         "Datentyp": "float64",
         "Einheit": "$\\mu$m",

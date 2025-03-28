@@ -10,7 +10,7 @@ def plot_multi_sensors(data: pd.DataFrame, file_name: str, measurement_id: int, 
         ax.plot(data['Sec_Since_Start'], data[sensor_name], label=sensor_name)
         ax.scatter(data['Sec_Since_Start'], data[sensor_name], s=0.1, c='black', zorder=2, alpha=0.5)
     ax.set_xlabel('Zeit $t$ [s]')
-    ax.set_ylabel('Absolute Randfaserdehnung $\\Delta$l [$\\mu$m] / Neigung $\\varphi$ [°]')
+    ax.set_ylabel('Absolute Randfaserdehnung $\\Delta$L [$\\mu$m] / Neigung $\\varphi$ [°]')
     ax.legend()
     ax.set_title(f"Randfaserdehnung und Neigung über die Zeit, Measurement ID '{measurement_id}'", fontsize=14)
     fig.suptitle(f"File '{file_name}'", fontsize=8, ha='center')
@@ -70,7 +70,7 @@ def plot_select_oscillations(data: pd.DataFrame,
                 data[sensor_name],
                 sensor_name,
                 x_label='Zeit $t$ [s]',
-                y_label='Absolute Randfaserdehnung $\\Delta$l [$\\mu$m] / Neigung $\\varphi$ [°]',
+                y_label='Absolute Randfaserdehnung $\\Delta$L [$\\mu$m] / Neigung $\\varphi$ [°]',
                 title=f'Originaldaten',
                 color="blue"
             )
@@ -81,7 +81,7 @@ def plot_select_oscillations(data: pd.DataFrame,
                 oscillations_data_orig[sensor_name][sensor_name],
                 sensor_name,
                 x_label='Zeit $t$ [s]',
-                y_label='Absolute Randfaserdehnung $\\Delta $l [$\\mu$m] / Neigung $\\varphi$ [°]',
+                y_label='Absolute Randfaserdehnung $\\Delta$L [$\\mu$m] / Neigung $\\varphi$ [°]',
                 title=f'Selektierte Schwingungsdaten',
                 color="red"
             )

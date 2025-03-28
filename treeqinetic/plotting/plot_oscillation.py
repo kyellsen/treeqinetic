@@ -56,7 +56,7 @@ def plot_osc_fit(data: pd.DataFrame, data_orig: pd.DataFrame, sensor_name: str, 
     plt.plot(time_for_fit, fitted_oscillation, label="Angepasste Funktion", color="red", zorder=3)
     plt.title(f"Anpassung Schwingung an Messung ID {measurement_id} - {sensor_name}", fontsize=14)
     plt.xlabel("Zeit $t$ [s]")
-    plt.ylabel(f"Absolute Randfaserdehnung $\\Delta$l [$\\mu$m] / Neigung $\\varphi$ [°]")
+    plt.ylabel(f"Absolute Randfaserdehnung $\\Delta$L [$\\mu$m] / Neigung $\\varphi$ [°]")
 
     # Parameterbezeichnungen und deren Werte formatieren
     param_optimal_dict = {label: param for label, param in zip(param_labels, param_optimal)}
