@@ -1,30 +1,36 @@
 import numpy as np
+
 import pandas as pd
 from typing import Tuple, List, Optional, Dict, Any
 from scipy.optimize import minimize, curve_fit, OptimizeResult
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
-def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float, frequency: float,
-               phase_angle: float, y_shift: float, x_shift: float) -> np.ndarray:
-    """
-    Damped oscillation function with optional horizontal shift.
+# def damped_osc(time: np.ndarray, initial_amplitude: float, damping_coeff: float, frequency: float,
+#                phase_angle: float, y_shift: float, x_shift: float) -> np.ndarray:
+#     """
+#     Damped oscillation function with optional horizontal shift.
+#
+#     Args:
+#     time (np.ndarray): Array of time values.
+#     initial_amplitude (float): Initial amplitude of the oscillation.
+#     damping_coeff (float): Damping coefficient.
+#     frequency (float): Angular frequency of the oscillation.
+#     phase_angle (float): Phase angle.
+#     y_shift (float): Vertical shift of the oscillation.
+#     x_shift (float): Horizontal shift of the oscillation.
+#
+#     Returns:
+#     np.ndarray: Calculated values of the damped oscillation function for each time value.
+#     """
+#     function = initial_amplitude * np.exp(-damping_coeff * (time - x_shift)) * np.cos(
+#         2 * np.pi * frequency * (time - x_shift) + phase_angle) + y_shift
+#     return function
 
-    Args:
-    time (np.ndarray): Array of time values.
-    initial_amplitude (float): Initial amplitude of the oscillation.
-    damping_coeff (float): Damping coefficient.
-    frequency (float): Angular frequency of the oscillation.
-    phase_angle (float): Phase angle.
-    y_shift (float): Vertical shift of the oscillation.
-    x_shift (float): Horizontal shift of the oscillation.
 
-    Returns:
-    np.ndarray: Calculated values of the damped oscillation function for each time value.
-    """
-    function = initial_amplitude * np.exp(-damping_coeff * (time - x_shift)) * np.cos(
-        2 * np.pi * frequency * (time - x_shift) + phase_angle) + y_shift
-    return function
+def damped_osc(time, initial_amplitude, damping_coeff, frequency, phase_angle, y_shift, x_shift):
+    return initial_amplitude * np.exp(-damping_coeff * (time - x_shift)) * \
+           np.cos(2 * np.pi * frequency * (time - x_shift) + phase_angle) + y_shift
 
 
 def mae_loss(params, time, sensor_data):
@@ -82,10 +88,13 @@ def fit_damped_osc(
     else:
         raise ValueError("Criterion must be 'mae' or 'mse'")
 
+    time = data['Sec_Since_Start'].values
+    sensor_data = data[sensor_name].values
+
     result = minimize(
         loss_function,
         x0=np.array(initial_param),
-        args=(data['Sec_Since_Start'], data[sensor_name]),
+        args=(time, sensor_data),
         bounds=bounds,
         method='L-BFGS-B',
         options=options
