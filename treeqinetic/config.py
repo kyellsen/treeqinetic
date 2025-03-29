@@ -58,5 +58,4 @@ class Config(CoreConfig):
             'maxiter': 1000,
             'ftol': 1e-8,
         }
-
         #error = 1000
