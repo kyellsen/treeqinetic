@@ -6,6 +6,7 @@ import json
 
 from .base_class import BaseClass
 from .measurement import Measurement
+from .oscillation import Oscillation
 
 from ..plotting.plot_fit_error import plot_error_histogram, plot_error_qq, plot_error_violin
 
@@ -88,24 +89,54 @@ class Series(BaseClass):
             logger.info(f"Plot Oscillations for {measurement}")
             measurement.plot_select_oscillations(sensor_names, combined)
 
-    def get_oscillations_list(self):
+    def get_oscillations_list(self) -> List[Oscillation]:
+        """
+        Returns a flat list of all Oscillation objects from all measurements.
+        """
         oscillation_list = []
-        for measurement in self.measurements:
-            oscillation_list.extend(measurement.oscillations.values())
+        try:
+            for measurement in self.measurements:
+                # measurement.oscillations.values() sind alle Oscillation-Objekte
+                # der jeweiligen Messung
+                oscillation_list.extend(measurement.oscillations.values())
+        except Exception as e:
+            logger.error(f"Failed to gather oscillations list: {e}")
         return oscillation_list
 
-    def get_oscillations_df(self):
-        oscillations = self.get_oscillations_list()
-        data = []
+    def get_oscillations_list(self) -> List[Oscillation]:
+        """
+        Returns a flat list of all Oscillation objects from all measurements.
+        """
+        oscillation_list = []
+        try:
+            for measurement in self.measurements:
+                # measurement.oscillations.values() sind alle Oscillation-Objekte
+                # der jeweiligen Messung
+                oscillation_list.extend(measurement.oscillations.values())
+        except Exception as e:
+            logger.error(f"Failed to gather oscillations list: {e}")
+        return oscillation_list
 
-        for osc in oscillations:
-            row = {
+    def _collect_oscillation_data(self, osc: Oscillation) -> Dict:
+        """
+        Helper function to collect measurement-related data from a single Oscillation object.
+        Includes sensor extremes, param_optimal_dict, metrics_dict etc.
+
+        Returns:
+            Dict mit den wichtigsten Informationen zur Schwingung.
+        """
+        data_row = {}
+        try:
+            sensor_name = osc.sensor_name
+
+            # Basiswerte
+            data_row = {
                 'id': osc.measurement.id,
                 'file_name': osc.measurement.file_name,
-                'sensor_name': osc.sensor_name,
+                'sensor_name': sensor_name,
                 'sample_rate': osc.sample_rate,
-                'max_strain': osc.max_value_full,
-                'max_compression': osc.min_value_full,
+                'max_strain': osc.measurement.data[sensor_name].max(),
+                'max_compression': osc.measurement.data[sensor_name].min(),
                 'max_strain_osc': osc.max_value,
                 'max_compression_osc': osc.min_value,
                 'm_amplitude': osc.m_amplitude,
@@ -115,18 +146,86 @@ class Series(BaseClass):
 
             # Werte aus param_optimal_dict hinzufügen
             if osc.param_optimal_dict:
-                row.update(osc.param_optimal_dict)
+                data_row.update(osc.param_optimal_dict)
 
             # Werte aus metrics_dict hinzufügen
             if osc.metrics_dict:
-                row.update(osc.metrics_dict)
+                data_row.update(osc.metrics_dict)
 
-            data.append(row)
+        except Exception as e:
+            logger.error(f"Error while collecting osc data for {osc}: {e}")
 
-        df = pd.DataFrame(data)
+        return data_row
 
-        # Jetzt sensor_name zu 'category' konvertieren
-        df['sensor_name'] = df['sensor_name'].astype('category')
+    def _collect_oscillation_optimization_details(self, osc: Oscillation) -> Dict:
+        """
+        Helper function to collect optimization details (e.g., nit, nfev) from a single Oscillation object.
+        Includes optional metrics_dict if present.
+
+        Returns:
+            Dict mit grundlegenden Angaben plus optimization_details.
+        """
+        data_row = {}
+        try:
+            # Nur wenn optimization_details existiert
+            if osc.optimization_details is not None:
+                data_row = {
+                    'id': osc.measurement.id,
+                    'file_name': osc.measurement.file_name,
+                    'sensor_name': osc.sensor_name,
+                }
+                # Optimierungsdetails hinzufügen
+                data_row.update(osc.optimization_details)
+
+                # metrics_dict ggf. hinzufügen
+                if osc.metrics_dict:
+                    data_row.update(osc.metrics_dict)
+        except Exception as e:
+            logger.error(f"Error while collecting optimization details for {osc}: {e}")
+
+        return data_row
+
+    def get_oscillations_df(self) -> pd.DataFrame:
+        """
+        Creates a DataFrame containing measurement and fit information for all Oscillation objects.
+
+        Returns:
+            pd.DataFrame: DataFrame mit Spalten wie ID, file_name, sensor_name,
+                          sowie gemessenen und berechneten Werten (z. B. max_strain, param_optimal_dict usw.).
+        """
+        oscillations = self.get_oscillations_list()
+        data_rows = []
+
+        for osc in oscillations:
+            row = self._collect_oscillation_data(osc)
+            if row:  # Nur wenn nicht leer
+                data_rows.append(row)
+
+        df = pd.DataFrame(data_rows)
+        # Datentyp anpassen (optional)
+        if not df.empty and 'sensor_name' in df.columns:
+            df['sensor_name'] = df['sensor_name'].astype('category')
+
+        return df
+
+    def get_osc_optimization_details_df(self) -> pd.DataFrame:
+        """
+        Creates a DataFrame from the Optimization-Details (self.optimization_details)
+        of all Oscillation objects. Includes optional metrics_dict if present.
+
+        Returns:
+            pd.DataFrame: Columns for ID, file_name, sensor_name,
+                          plus the fields from osc.optimization_details and metrics_dict.
+        """
+        oscillations = self.get_oscillations_list()
+        data_rows = []
+
+        for osc in oscillations:
+            row = self._collect_oscillation_optimization_details(osc)
+            if row:  # Nur wenn nicht leer
+                data_rows.append(row)
+
+        df = pd.DataFrame(data_rows)
         return df
 
     @staticmethod

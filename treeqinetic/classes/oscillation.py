@@ -26,12 +26,10 @@ class Oscillation(BaseClass):
         self.measurement = measurement
         self.sensor_name = sensor_name
         self.start_index = start_index
-        self.df_full = df
-        self.max_value_full = df[sensor_name].max()
-        self.min_value_full = df[sensor_name].min()
+        self.oscillation_df = df    # from Measurement.select_oscillations
 
         # Prepare the DataFrame
-        self.df = self._prepare_dataframe(df)
+        self.df = self._prepare_dataframe(df)   # data index / time reset to 0
 
         self.df_fit = None
         self.sample_rate = None
@@ -47,6 +45,7 @@ class Oscillation(BaseClass):
         self.m_amplitude_2 = None
         self.param_optimal = None
         self.param_optimal_dict = None
+        self.optimization_details = None
         self.metrics = None
         self.metrics_dict = None
         self.metric_warning = False
@@ -238,7 +237,8 @@ class Oscillation(BaseClass):
             logger.error(f"Error in prepare_df_for_fitting: {e}")
 
     def calc_param_optimal(self, initial_param: Dict[str, float],
-                           param_bounds: Dict[str, Tuple[float, float]], optimize_criterion: str) -> None:
+                           param_bounds: Dict[str, Tuple[float, float]],
+                           optimize_criterion: str) -> None:
         """
         Calculates the optimal parameters for the model.
 
@@ -256,13 +256,51 @@ class Oscillation(BaseClass):
             lower_bounds, upper_bounds = zip(*[param_bounds[name] for name in param_names])
             param_bounds_list = (list(lower_bounds), list(upper_bounds))
 
-            self.param_optimal = fit_damped_osc(self.df_fit, self.sensor_name, initial_param=initial_param_list,
-                                                param_bounds=param_bounds_list, optimize_criterion=optimize_criterion)
-            param_labels = self.CONFIG.Oscillation.param_labels
-            self.param_optimal_dict = {label: param for label, param in zip(param_labels, self.param_optimal)}
+            # fit_options aus der Config
+            fit_options = self.CONFIG.Oscillation.fit_options
 
-            # Abgeleitete Parameter berechnen
+            result = fit_damped_osc(
+                data=self.df_fit,
+                sensor_name=self.sensor_name,
+                initial_param=initial_param_list,
+                param_bounds=param_bounds_list,
+                optimize_criterion=optimize_criterion,
+                options=fit_options
+            )
+
+            # param_optimal speichert nur die optimierten Parameter
+            self.param_optimal = result.x
+
+            # 2) Neue Instanzvariable zur Speicherung von Details des OptimizeResult
+            self.optimization_details = {
+                "nit": result.nit,
+                "nfev": result.nfev,
+                "success": result.success,
+                "status": result.status,
+                "fun": result.fun,
+                "message": result.message
+            }
+
+            # Kompaktes Logging der wichtigsten Infos
+            logger.debug(
+                f"Optimization result: "
+                f"nit={result.nit}, "
+                f"nfev={result.nfev}, "
+                f"success={result.success}, "
+                f"status={result.status}, "
+                f"fun={result.fun}, "
+                f"message='{result.message}'"
+            )
+
+            # Aus den Parametern ein Dictionary mit sprechenden Keys erstellen
+            param_labels = self.CONFIG.Oscillation.param_labels
+            self.param_optimal_dict = {
+                label: param for label, param in zip(param_labels, self.param_optimal)
+            }
+
+            # Ableitungen berechnen (frequency_undamped, damping_ratio, usw.)
             self.calc_additional_parameters()
+
         except Exception as e:
             logger.error(f"Error in calc_param_optimal: {e}")
 

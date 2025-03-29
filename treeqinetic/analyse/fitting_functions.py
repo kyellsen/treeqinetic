@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from typing import Tuple, List
-from scipy.optimize import minimize, curve_fit
+from typing import Tuple, List, Optional, Dict, Any
+from scipy.optimize import minimize, curve_fit, OptimizeResult
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
@@ -41,8 +41,14 @@ def mse_loss(params, time, sensor_data):
     return mse
 
 
-def fit_damped_osc(data: pd.DataFrame, sensor_name: str, initial_param: List[float],
-                   param_bounds: Tuple[List[float], List[float]], optimize_criterion: str = 'mae') -> np.ndarray:
+def fit_damped_osc(
+    data: pd.DataFrame,
+    sensor_name: str,
+    initial_param: List[float],
+    param_bounds: Tuple[List[float], List[float]],
+    optimize_criterion: str = 'mae',
+    options: Optional[Dict[str, Any]] = None
+) -> OptimizeResult:
     """
     Fits a damped oscillation function to given data using either MAE or MSE as the optimization criterion.
 
@@ -52,16 +58,22 @@ def fit_damped_osc(data: pd.DataFrame, sensor_name: str, initial_param: List[flo
         initial_param (List[float]): List of initial parameter guesses for the fitting function.
         param_bounds (Tuple[List[float], List[float]]): Tuple containing two lists of lower and upper bounds for each parameter.
         optimize_criterion (str): Criterion to optimize ('mae' or 'mse').
+        options (dict, optional): Options dictionary for scipy.optimize.minimize. If None, default values are used.
 
     Returns:
-        np.ndarray: Optimized parameters.
+        OptimizeResult: The full optimization result object from scipy.optimize.minimize,
+                        which includes the optimized parameters in result.x as well as
+                        additional information such as the number of iterations (result.nit),
+                        the optimization status, and more.
     """
-    bounds = [(low, high) for low, high in zip(*param_bounds)]
+    # Falls keine eigenen Options übergeben wurden, auf Defaultwerte zurückgreifen
+    if options is None:
+        options = {
+            'maxiter': 100000,
+            'ftol': 2.220446049250313e-09,
+        }
 
-    options = {
-        'maxiter': 100000,  # Increased maximum number of iterations
-        'ftol': 2.220446049250313e-09,
-    }
+    bounds = [(low, high) for low, high in zip(*param_bounds)]
 
     if optimize_criterion == 'mae':
         loss_function = mae_loss
@@ -70,7 +82,14 @@ def fit_damped_osc(data: pd.DataFrame, sensor_name: str, initial_param: List[flo
     else:
         raise ValueError("Criterion must be 'mae' or 'mse'")
 
-    result = minimize(loss_function, np.array(initial_param), args=(data['Sec_Since_Start'], data[sensor_name]),
-                      bounds=bounds, method='L-BFGS-B', options=options)
+    result = minimize(
+        loss_function,
+        x0=np.array(initial_param),
+        args=(data['Sec_Since_Start'], data[sensor_name]),
+        bounds=bounds,
+        method='L-BFGS-B',
+        options=options
+    )
 
-    return result.x
+    return result
+

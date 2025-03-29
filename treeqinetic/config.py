@@ -53,4 +53,10 @@ class Config(CoreConfig):
 
         metrics_to_plot = ['pearson_r', 'p_value', 'r2', 'nrmse', 'mae', 'nmae']
 
+        # Neue Default-Optionen für scipy.optimize.minimize
+        fit_options = {
+            'maxiter': 1000,
+            'ftol': 1e-8,
+        }
+
         #error = 1000
