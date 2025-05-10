@@ -152,6 +152,10 @@ class Series(BaseClass):
             if osc.metrics_dict:
                 data_row.update(osc.metrics_dict)
 
+            # Werte aus metrics_dict hinzufügen
+            if osc.integral_dict:
+                data_row.update(osc.integral_dict)
+
         except Exception as e:
             logger.error(f"Error while collecting osc data for {osc}: {e}")
 
