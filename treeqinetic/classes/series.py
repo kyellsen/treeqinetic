@@ -103,19 +103,6 @@ class Series(BaseClass):
             logger.error(f"Failed to gather oscillations list: {e}")
         return oscillation_list
 
-    def get_oscillations_list(self) -> List[Oscillation]:
-        """
-        Returns a flat list of all Oscillation objects from all measurements.
-        """
-        oscillation_list = []
-        try:
-            for measurement in self.measurements:
-                # measurement.oscillations.values() sind alle Oscillation-Objekte
-                # der jeweiligen Messung
-                oscillation_list.extend(measurement.oscillations.values())
-        except Exception as e:
-            logger.error(f"Failed to gather oscillations list: {e}")
-        return oscillation_list
 
     def _collect_oscillation_data(self, osc: Oscillation) -> Dict:
         """
@@ -152,7 +139,7 @@ class Series(BaseClass):
             if osc.metrics_dict:
                 data_row.update(osc.metrics_dict)
 
-            # Werte aus metrics_dict hinzufügen
+            # Werte aus integral_dict hinzufügen
             if osc.integral_dict:
                 data_row.update(osc.integral_dict)
 

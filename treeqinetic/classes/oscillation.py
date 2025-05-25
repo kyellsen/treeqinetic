@@ -9,6 +9,8 @@ from .base_class import BaseClass
 
 from ..plotting.plot_fit_error import plot_error_histogram
 from ..plotting import plot_oscillation
+from ..plotting.plot_integral import plot_integral
+
 from kj_core.df_utils.df_calc import calc_sample_rate, calc_amplitude, calc_min_max
 from kj_core.classes.similarity_metrics import SimilarityMetrics
 from ..analyse.fitting_functions import damped_osc, fit_damped_osc
@@ -50,6 +52,8 @@ class Oscillation(BaseClass):
         self.metrics_dict = None
         self.metric_warning = False
         self.errors = None
+
+        self.integral_dict = None
 
         # Perform initial calculations
         self._initial_calculations()
@@ -188,7 +192,8 @@ class Oscillation(BaseClass):
             metrics_warning = self.CONFIG.Oscillation.metrics_warning
 
         try:
-            self.prepare_df_for_fitting(interpolate)
+            if self.df_fit is None:
+                self.prepare_df_for_fitting(interpolate)
             self.calc_param_optimal(initial_param, param_bounds, optimize_criterion)
             self.calc_metrics(metrics_warning)
             self.calc_errors()
@@ -235,6 +240,108 @@ class Oscillation(BaseClass):
             self.df_fit = df_fit
         except Exception as e:
             logger.error(f"Error in prepare_df_for_fitting: {e}")
+
+    def calculate_elasto_integral(
+            self,
+            interpolate: bool = True,
+            sample_rate: float = 50.0,
+            last_frac: float = 0.50,
+            unit: str = "µm·s",
+            plot: bool = True
+    ) -> None:
+        """
+        Berechnet das zeitliche Integral der Sensorsignale und speichert die Ergebnisse.
+
+        Parameters
+        ----------
+        interpolate : bool, optional
+            Legt fest, ob die Rohdaten vor der Integration interpoliert werden sollen.
+            Standard ist True.
+        sample_rate : float, optional
+            Abtastrate in Hertz (Hz) zur Bestimmung des Zeitintervalls zwischen den
+            Datenpunkten. Muss größer als 0 sein. Standard ist 50.0.
+        last_frac : float, optional
+            Anteil der letzten Datenpunkte zur Berechnung des Mittelwerts für den
+            Intercept (Nullpunkt). Muss im Bereich (0, 1] liegen. Standard ist 0.50.
+        unit : str, optional
+            Einheit der berechneten Integrale (z. B. "µm·s"). Standard ist "µm·s".
+        plot : bool, optional
+            Gibt an, ob das Ergebnis geplottet und abgespeichert werden soll.
+            Standard ist True.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            Wenn `sample_rate` ≤ 0 oder `last_frac` nicht im (0, 1] liegt.
+
+        Notes
+        -----
+        1. Lädt bzw. interpoliert die Daten, falls sie noch nicht vorbereitet sind.
+        2. Validiert die Eingabeparameter für Abtastrate und letzten Datenanteil.
+        3. Bestimmt den Mittelwert der letzten `last_frac` Datenpunkte als Intercept
+           und zentriert die Messwerte.
+        4. Berechnet das positive und negative Integral getrennt per Summation
+           und multipliziert mit dem Zeitintervall.
+        5. Speichert die Ergebnisse in `self.integral_dict` und schreibt sie ins Log.
+        6. Optional wird ein Plot erzeugt und über `self.PLOT_MANAGER` abgespeichert.
+        """
+        try:
+            # 1) Daten laden/interpolieren
+            if self.df_fit is None:
+                self.prepare_df_for_fitting(interpolate)
+
+            # 2) Eingaben validieren
+            if sample_rate <= 0:
+                raise ValueError("sample_rate must be positive")
+            if not (0 < last_frac <= 1):
+                raise ValueError("last_frac must be in (0, 1]")
+
+            df = self.df_fit.copy()
+            sampling_interval = 1.0 / sample_rate
+
+            # 3) Intercept bestimmen
+            n_last = max(1, int(last_frac * len(df)))
+            intercept = df[self.sensor_name].iloc[-n_last:].mean()
+
+            # 4) Werte zentrieren
+            df['cent'] = df[self.sensor_name] - intercept
+
+            # 5) Positive und negative Anteile mit pandas clip statt numpy
+            pos = df['cent'].clip(lower=0)
+            neg = (-df['cent'].clip(upper=0))
+
+            pos_int = pos.sum() * sampling_interval
+            neg_int = neg.sum() * sampling_interval
+            abs_int = pos_int + neg_int
+            ratio = pos_int / neg_int if neg_int > 0 else float('nan')
+
+            # 6) Ergebnisse speichern
+            self.integral_dict = {
+                "integral_intercept": intercept,
+                "integral_positiv": pos_int,
+                "integral_negativ": neg_int,
+                "integral_abs": abs_int,
+                "integral_ratio": ratio,
+                #"integral_unit": unit
+            }
+
+            logger.info(
+                f"calculate_elasto_integral successful: "
+                f"pos={pos_int:.3f}, neg={neg_int:.3f}, abs={abs_int:.3f}, ratio={ratio:.3f}"
+            )
+
+            # 7) Optional plotten
+            if plot:
+                fig = plot_integral(df, self.sensor_name, self.measurement.id, self.integral_dict)
+                filename = f"{self.measurement.id}_{self.sensor_name}_{self.measurement.file_name}"
+                self.PLOT_MANAGER.save_plot(fig, filename, subdir="osc_integral")
+
+        except Exception as e:
+            logger.error(f"Error in calculate_elasto_integral: {e}", exc_info=True)
 
     def calc_param_optimal(self, initial_param: Dict[str, float],
                            param_bounds: Dict[str, Tuple[float, float]],
