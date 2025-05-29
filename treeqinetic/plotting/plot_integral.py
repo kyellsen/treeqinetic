@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def plot_integral(
@@ -21,7 +22,7 @@ def plot_integral(
     Returns:
     - Figure
     """
-
+    cp = sns.color_palette('bright')
     # Unpack results
     pos_int = results['integral_positiv']
     neg_int = results['integral_negativ']
@@ -34,21 +35,22 @@ def plot_integral(
     cent = df['cent']
 
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(times, raw,  label='Raw data',    linewidth=1)
-    ax.plot(times, cent, label='Centered',     linewidth=1)
+    ax.plot(times, raw,  label='Raw data',    linewidth=1, c="grey")
+    ax.plot(times, cent, label='Centered',     linewidth=1, c="black")
 
     # Fill-positive and negative areas
     ax.fill_between(
         times, cent, 0,
         where=cent >= 0, interpolate=True,
         alpha=0.4,
-        label=f"Positive: {pos_int:.2f} {unit}"
+        color='#1ac938',
+        label=f"Positive: {pos_int:.2f} {unit}",
     )
     ax.fill_between(
         times, cent, 0,
         where=cent <= 0, interpolate=True,
         alpha=0.4,
-        color='salmon',
+        color='#e8000b',
         label=f"Negative: {neg_int:.2f} {unit}"
     )
 
@@ -65,7 +67,7 @@ def plot_integral(
     ax.text(
         0.98, 0.95, text,
         ha='right', va='top', transform=ax.transAxes,
-        bbox=dict(boxstyle='round,pad=0.3', alpha=0.3)
+        bbox=dict(boxstyle='round,pad=0.3', alpha=0.3, facecolor='white', edgecolor="black")
     )
 
     ax.legend(loc='lower right', fontsize=10)
