@@ -1,7 +1,7 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Optional
 import json
 
 from .base_class import BaseClass
@@ -16,43 +16,150 @@ logger = get_logger(__name__)
 
 
 class Series(BaseClass):
-    def __init__(self, name: str, path: str):
+    """
+    Repräsentiert eine Serie von Messungen aus Textdateien in einem Verzeichnis.
+
+    Attributes:
+        name (str): Name der Serie.
+        path (Path): Pfad zum Verzeichnis mit den Messungsdateien.
+        measurement_files_paths (List[Path]): Liste aller .txt-Dateipfade im Verzeichnis.
+        measurement_files (List[str]): Liste aller Dateinamen der .txt-Dateien.
+        measurements (List[Measurement]): Liste der eingelesenen Measurement-Instanzen.
+        measurements_count (int): Anzahl der eingelesenen Messungen.
+        df_list (List[pd.DataFrame]): Liste der DataFrames aller Messungen.
+        df (pd.DataFrame): Zusammengeführtes DataFrame aller Messungen.
+        osc_df (Optional[pd.DataFrame]): DataFrame der Oszillationsdaten (initial None).
+        osc_errors_dict_all (Optional[Dict]): Fehlerdaten über alle Sensoren (initial None).
+        osc_errors_dict_by_sensor (Optional[Dict]): Fehlerdaten gruppiert nach Sensor (initial None).
+    """
+
+    def __init__(self, name: str, path: str) -> None:
+        """
+        Initialisiert eine neue Series-Instanz.
+
+        Args:
+            name (str): Name der Serie.
+            path (str): Pfad zum Verzeichnis, das die .txt-Messungsdateien enthält.
+
+        Raises:
+            ValueError: Wenn der angegebene Pfad nicht existiert oder kein Verzeichnis ist.
+        """
         super().__init__()
-        Measurement.counter = 0  # reset the counter for the Measurement class
-        self.name = name
-        self.path = Path(path)
-        self.measurement_files_paths = [f for f in self.path.iterdir() if f.is_file() and f.suffix == '.txt']
-        self.measurement_files = [f.name for f in self.path.iterdir() if f.is_file() and f.suffix == '.txt']
-        self.measurements = []
+        self.name: str = name
+
+        self.path: Path = Path(path)
+        if not self.path.exists():
+            logger.error(f"Der Pfad '{self.path}' existiert nicht.")
+            raise ValueError(f"Der Pfad '{self.path}' existiert nicht.")
+        if not self.path.is_dir():
+            logger.error(f"Der Pfad '{self.path}' ist kein Verzeichnis.")
+            raise ValueError(f"Der Pfad '{self.path}' ist kein Verzeichnis.")
+
+        # Sammle alle .txt-Dateien im Verzeichnis
+        self.measurement_files_paths: List[Path] = [
+            f for f in self.path.iterdir() if f.is_file() and f.suffix.lower() == '.txt'
+        ]
+        self.measurement_files: List[str] = [f.name for f in self.measurement_files_paths]
+
+        if not self.measurement_files_paths:
+            logger.warning(f"Keine '.txt'-Dateien im Verzeichnis '{self.path}' gefunden.")
+
+        self.measurements: List[Measurement] = []
 
         for measurement_file_path in self.measurement_files_paths:
-            if measurement_file_path.name not in self.measurements:
-                # Create an instance of Measurement and add it to the list "measurements"
-                self.measurements.append(Measurement.read_txt(file_path=measurement_file_path))
+            try:
+                # Erstelle eine Measurement-Instanz aus der Datei
+                measurement = Measurement.read_txt(file_path=measurement_file_path)
+                self.measurements.append(measurement)
+            except Exception as e:
+                logger.error(f"Fehler beim Einlesen der Datei '{measurement_file_path}': {e}")
 
-        # Set the attribute "measurements_count" to the number of measurements in the list "measurements"
-        self.measurements_count = len(self.measurements)
+        self.measurements_count: int = len(self.measurements)
 
-        # Create df_list and df for all Logs of the series at initialization
-        self.df_list = self.get_measurements_df_list()
-        self.df = self.get_measurements_df()
+        # Erstelle Liste von DataFrames und kombiniertes DataFrame
+        self.df_list: List[pd.DataFrame] = self.get_measurements_df_list()
+        try:
+            self.df: pd.DataFrame = self.get_measurements_df()
+        except ValueError:
+            # Falls df_list leer ist, lege ein leeres DataFrame an
+            self.df = pd.DataFrame()
+            logger.warning("Keine Daten zum Zusammenführen gefunden; 'df' ist leer.")
 
-        self.osc_df = None
-        self.osc_errors_dict_all = None
-        self.osc_errors_dict_by_sensor = None
+        # Oszillationsdaten und Fehlerinitialisierung
+        self.osc_df: Optional[pd.DataFrame] = None
+        self.osc_errors_dict_all: Optional[Dict] = None
+        self.osc_errors_dict_by_sensor: Optional[Dict] = None
 
-    def __str__(self):
-        return f"Series: '{self.name}' with {self.measurements_count} measurements: {self.measurement_files}"
+    def __str__(self) -> str:
+        """
+        Liefert eine lesbare Darstellung der Series-Instanz.
 
-    def get_measurements_df_list(self):
-        return [measurement.data for measurement in self.measurements]
+        Returns:
+            str: Beschreibung mit Name, Anzahl und Dateinamen der Messungen.
+        """
+        return f"Series: '{self.name}' mit {self.measurements_count} Messungen: {self.measurement_files}"
 
-    def get_measurements_df(self):
-        return pd.concat(self.df_list, ignore_index=True)
+    def get_measurements_df_list(self) -> List[pd.DataFrame]:
+        """
+        Ermittelt für jede Measurement-Instanz deren DataFrame.
 
-    def plot_measurement_sensors(self, sensor_names: list, time_start=None, time_end=None):
+        Returns:
+            List[pd.DataFrame]: Liste aller DataFrames der Measurements.
+        """
+        df_list: List[pd.DataFrame] = []
         for measurement in self.measurements:
-            measurement.plot_multi_sensors(sensor_names, time_start, time_end)
+            if hasattr(measurement, 'data') and isinstance(measurement.data, pd.DataFrame):
+                df_list.append(measurement.data)
+            else:
+                logger.warning(f"Measurement '{measurement}' hat kein valides DataFrame-Attribut 'data'.")
+        return df_list
+
+    def get_measurements_df(self) -> pd.DataFrame:
+        """
+        Verkettet alle DataFrames aus get_measurements_df_list zu einem einzigen DataFrame.
+
+        Returns:
+            pd.DataFrame: Zusammengeführtes DataFrame aller Messdaten.
+
+        Raises:
+            ValueError: Wenn keine DataFrames zum Zusammenführen vorhanden sind.
+        """
+        if not self.df_list:
+            raise ValueError("Keine DataFrames vorhanden, um sie zusammenzuführen.")
+        try:
+            combined_df = pd.concat(self.df_list, ignore_index=True)
+        except Exception as e:
+            logger.error(f"Fehler beim Zusammenführen der DataFrames: {e}")
+            raise
+        return combined_df
+
+    def plot_measurement_sensors(
+        self,
+        sensor_names: List[str],
+        time_start: Optional[float] = None,
+        time_end: Optional[float] = None
+    ) -> None:
+        """
+        Plottet den Zeitverlauf der angegebenen Sensoren für jede Measurement-Instanz.
+
+        Args:
+            sensor_names (List[str]): Liste der Sensor-Namen, die geplottet werden sollen.
+            time_start (Optional[float]): Startzeitpunkt für den Plot (Standard: None).
+            time_end (Optional[float]): Endzeitpunkt für den Plot (Standard: None).
+
+        Raises:
+            ValueError: Wenn sensor_names leer ist oder kein List-Typ.
+        """
+        if not isinstance(sensor_names, list) or not sensor_names:
+            logger.error("Die Liste 'sensor_names' darf nicht leer sein und muss vom Typ List[str] sein.")
+            raise ValueError("sensor_names muss eine nicht-leere Liste von Zeichenketten sein.")
+
+        for measurement in self.measurements:
+            try:
+                measurement.plot_multi_sensors(sensor_names, time_start, time_end)
+            except Exception as e:
+                logger.error(f"Fehler beim Plotten für Measurement '{measurement}': {e}")
+
 
     def get_oscillations(self, sensor_names: List[str], **kwargs):
         """
