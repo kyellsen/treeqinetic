@@ -231,7 +231,7 @@ class Measurement(BaseClass):
             fig = plot_measurement.plot_multi_sensors(data, self.file_name_text, self.id, sensor_names)
 
             self.PLOT_MANAGER.save_plot(fig, filename=f"{self.id}_{self.file_name_text}",
-                                        subdir="multi_sensors_vs_time_1")
+                                        subdir=f"multi_sensors_{str(sensor_names)}")
 
             logger.info(f"plot_multi_sensors for measurement: '{self}' successful.")
         except Exception as e:
